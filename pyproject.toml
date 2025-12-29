@@ -1,0 +1,16 @@
+[project]
+name = "jautolog"
+version = "0.1.0"
+description = "Autolog Web Application"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.0",
+    "gunicorn>=20.1",
+    "opentelemetry-distro>=0.60b1",
+    "opentelemetry-exporter-otlp>=1.39b1",
+    "opentelemetry-instrumentation-django>=0.60b1",
+    "opentelemetry-instrumentation-logging>=0.60b1",
+    "opentelemetry-instrumentation-requests>=0.60b1",
+    "opentelemetry-instrumentation-sqlalchemy>=0.60b1"
+]
