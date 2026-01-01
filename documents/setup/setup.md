@@ -12,7 +12,7 @@ Details the steps of building the Docker image and deploying the a local Kuberne
 Details on how to setup Open Telemetry.  This will assume that a collector is already in place.
 
 ### [04. Enable Login and Google Authentication](04_authentication.md)
-Details on how to setup Open Telemetry.  This will assume that a collector is already in place.
+Details on handling login including Google Authentication.  This section also gets into some of the basic styling of the site.
 
 ### 05. Enable PostgreSQL Database
 Define a postgress database instance instead of the sqlite.  Also defines backups when running on the Kubernettes cluster

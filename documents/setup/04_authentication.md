@@ -80,6 +80,15 @@ LOGIN_URL = '/accounts/login/'
 CSRF_TRUSTED_ORIGINS = [
     "https://jautolog.jaycurtis.org",
 ]
+
+import os
+
+if os.getenv("DJANGO_ENV") == "production":
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+DEFAULT_FROM_EMAIL = "noreply@yourdomain.com"
 ```
 
 4. Update urls.py
@@ -156,3 +165,24 @@ from django.contrib.auth.decorators import login_required
 def home(request):
     ...
 ```
+
+### Styling
+By default, the login pages look terrible.  Some basic improvements can be done with just creating a base.html for account, however, to get an overall better look and field the following files should be overridden.
+
+- login.html
+- logout.html
+- singup.html
+- password_reset.html
+
+All of these should extend the base.html that is specific to accounts that also extends the sites base.html
+```bash
+{% extends "base.html" %} 
+
+{% block content %}
+    {% block body %}
+    {% endblock %}
+{% endblock %}
+```
+
+Note: If you are only going to override the base.html and not the above 4 pages, then the base.html actually needs to reside in templates/allauth/layouts.  This is the true default location, however,
+when overriding the above 4 pages, they should go oin templates/account
