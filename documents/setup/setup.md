@@ -16,6 +16,3 @@ Details on handling login including Google Authentication.  This section also ge
 
 ### [05. Enable PostgreSQL Database](05_postgres_setup.md)
 Define a postgress database instance instead of the sqlite.  Also defines backups when running on the Kubernettes cluster
-
-### 06. Enable Super User on Kubernettes
-Define the steps to setup the Super User when pushed to the Kubernettes cluster
