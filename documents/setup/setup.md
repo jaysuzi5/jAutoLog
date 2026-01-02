@@ -11,10 +11,10 @@ Details the steps of building the Docker image and deploying the a local Kuberne
 ### [03. Enable Open Telememetry traces, metrics and logs](03_otel_setup.md)
 Details on how to setup Open Telemetry.  This will assume that a collector is already in place.
 
-### [04. Enable Login and Google Authentication](04_authentication.md)
+### [04. Enable Login and Google Authentication](04_authentication_setup.md)
 Details on handling login including Google Authentication.  This section also gets into some of the basic styling of the site.
 
-### 05. Enable PostgreSQL Database
+### [05. Enable PostgreSQL Database](05_postgres_setup.md)
 Define a postgress database instance instead of the sqlite.  Also defines backups when running on the Kubernettes cluster
 
 ### 06. Enable Super User on Kubernettes

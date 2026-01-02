@@ -65,3 +65,4 @@ celerybeat-schedule
 Thumbs.db
 
 secrets_plain_text.yaml
+temp.yaml

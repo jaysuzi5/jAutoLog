@@ -11,6 +11,8 @@ RUN pip install --upgrade pip && pip install "poetry-core>=1.8" && \
 
 COPY . .
 
+RUN python manage.py collectstatic --noinput
+
 EXPOSE 8000
 
 CMD [\

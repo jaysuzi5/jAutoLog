@@ -30,6 +30,7 @@ class RequestLoggingMiddleware:
         method = request.method
         path = request.path
         query_params = dict(request.GET)
+        user_context = self._get_user_context(request)
 
         # Log request
         logger.info(json.dumps({
@@ -38,6 +39,7 @@ class RequestLoggingMiddleware:
             "method": method,
             "service": "django-app",
             "path": path,
+            "user": user_context,
             "remote_addr": self._get_client_ip(request),
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "hostname": socket.gethostname(),
@@ -59,6 +61,7 @@ class RequestLoggingMiddleware:
                 "method": method,
                 "service": "django-app",
                 "path": path,
+                "user": user_context,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "exception": str(e),
                 "stack_trace": stack_trace,
@@ -75,6 +78,7 @@ class RequestLoggingMiddleware:
             "method": method,
             "service": "django-app",
             "path": path,
+            "user": user_context,
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "duration_seconds": round(elapsed_time, 4),
             "status": status_code,
@@ -105,3 +109,19 @@ class RequestLoggingMiddleware:
         if x_forwarded_for:
             return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR')
+
+    def _get_user_context(self, request):
+        user = getattr(request, "user", None)
+
+        if user and user.is_authenticated:
+            return {
+                "user_id": user.id,
+                "username": user.get_username(),
+                "is_authenticated": True,
+            }
+
+        return {
+            "user_id": None,
+            "username": None,
+            "is_authenticated": False,
+        }

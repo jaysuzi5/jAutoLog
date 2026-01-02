@@ -27,18 +27,39 @@ spec:
           ports:
             - containerPort: 8000
           env:
+            # Django
             - name: DJANGO_SETTINGS_MODULE
               value: "config.settings"
+
+            # Database
+            - name: POSTGRES_DB
+              value: "jautolog"
+            - name: POSTGRES_HOST
+              value: "postgresql-rw.postgresql.svc.cluster.local"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: password
+
+            # OpenTelemetry
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://otel-collector-collector.monitoring.svc.cluster.local:4317"
             - name: OTEL_SERVICE_NAME
-              value: "jautolog"    
+              value: "jautolog"
             - name: OTEL_RESOURCE_ATTRIBUTES
-              value: "service.name=jautolog"  
+              value: "service.name=jautolog"
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: "grpc"      
+              value: "grpc"
             - name: OTEL_LOG_LEVEL
-              value: "DEBUG"     
+              value: "DEBUG"
 ---
 apiVersion: v1
 kind: Service
