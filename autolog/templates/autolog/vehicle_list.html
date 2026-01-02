@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}My Vehicles - jAutoLog{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header mb-4">
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
+            <h1 class="mb-0"><i class="bi bi-car-front me-2"></i>My Vehicles</h1>
+            <a href="{% url 'vehicle_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Add Vehicle
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="showSoldToggle"
+                       {% if show_sold %}checked{% endif %}
+                       onchange="toggleSoldVehicles(this.checked)">
+                <label class="form-check-label" for="showSoldToggle">Show sold vehicles</label>
+            </div>
+        </div>
+    </div>
+
+    {% if vehicles %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+        {% for vehicle in vehicles %}
+        <div class="col">
+            <div class="card h-100 vehicle-card {% if vehicle.is_sold %}sold{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0">
+                            {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}
+                        </h5>
+                        {% if vehicle.is_sold %}
+                        <span class="badge bg-secondary"><i class="bi bi-tag me-1"></i>Sold</span>
+                        {% else %}
+                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                        {% endif %}
+                    </div>
+                    <div class="vehicle-details text-muted small">
+                        {% if vehicle.color %}
+                        <div class="mb-1"><i class="bi bi-palette me-2"></i>{{ vehicle.color }}</div>
+                        {% endif %}
+                        <div class="mb-1"><i class="bi bi-fuel-pump me-2"></i>{{ vehicle.get_fuel_type_display }}</div>
+                        {% if vehicle.license_plate_number %}
+                        <div><i class="bi bi-card-text me-2"></i>{{ vehicle.license_plate_number }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top-0 pt-0">
+                    <a href="{% url 'vehicle_detail' vehicle.pk %}" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-eye me-1"></i>View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-car-front text-muted" style="font-size: 3rem;"></i>
+            <h5 class="mt-3">No vehicles found</h5>
+            <p class="text-muted mb-3">
+                {% if show_sold %}
+                You haven't added any vehicles yet.
+                {% else %}
+                No active vehicles. Toggle "Show sold vehicles" to see sold ones.
+                {% endif %}
+            </p>
+            <a href="{% url 'vehicle_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Add Your First Vehicle
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleSoldVehicles(showSold) {
+    const url = new URL(window.location.href);
+    if (showSold) {
+        url.searchParams.set('show_sold', 'true');
+    } else {
+        url.searchParams.delete('show_sold');
+    }
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

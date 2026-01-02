@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Vehicle - jAutoLog{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-{% if action == 'Add' %}plus-circle{% else %}pencil{% endif %} me-2"></i>{{ action }} Vehicle
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-info-circle me-2"></i>Basic Information
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-6 col-md-3">
+                                <label for="{{ form.year.id_for_label }}" class="form-label">Year *</label>
+                                {{ form.year }}
+                                {% if form.year.errors %}<div class="text-danger small">{{ form.year.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label for="{{ form.make.id_for_label }}" class="form-label">Make *</label>
+                                {{ form.make }}
+                                {% if form.make.errors %}<div class="text-danger small">{{ form.make.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-12 col-md-5">
+                                <label for="{{ form.model.id_for_label }}" class="form-label">Model *</label>
+                                {{ form.model }}
+                                {% if form.model.errors %}<div class="text-danger small">{{ form.model.errors.0 }}</div>{% endif %}
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label for="{{ form.color.id_for_label }}" class="form-label">Color</label>
+                                {{ form.color }}
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label for="{{ form.fuel_type.id_for_label }}" class="form-label">Fuel Type</label>
+                                {{ form.fuel_type }}
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label for="{{ form.state.id_for_label }}" class="form-label">State</label>
+                                {{ form.state }}
+                            </div>
+                        </div>
+
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-card-text me-2"></i>Registration Details
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-12 col-md-6">
+                                <label for="{{ form.vin_number.id_for_label }}" class="form-label">VIN Number</label>
+                                {{ form.vin_number }}
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label for="{{ form.license_plate_number.id_for_label }}" class="form-label">License Plate</label>
+                                {{ form.license_plate_number }}
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label for="{{ form.registration_number.id_for_label }}" class="form-label">Registration #</label>
+                                {{ form.registration_number }}
+                            </div>
+                        </div>
+
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-cart-check me-2"></i>Purchase Information
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-6 col-md-3">
+                                <label for="{{ form.purchased_date.id_for_label }}" class="form-label">Purchase Date</label>
+                                {{ form.purchased_date }}
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label for="{{ form.purchased_price.id_for_label }}" class="form-label">Purchase Price</label>
+                                {{ form.purchased_price }}
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label for="{{ form.purchased_odometer.id_for_label }}" class="form-label">Odometer</label>
+                                {{ form.purchased_odometer }}
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label for="{{ form.dealer_name.id_for_label }}" class="form-label">Dealer/Seller</label>
+                                {{ form.dealer_name }}
+                            </div>
+                        </div>
+
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-cash-stack me-2"></i>Sale Information
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-6 col-md-4">
+                                <label for="{{ form.sold_date.id_for_label }}" class="form-label">Sold Date</label>
+                                {{ form.sold_date }}
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label for="{{ form.sold_price.id_for_label }}" class="form-label">Sale Price</label>
+                                {{ form.sold_price }}
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label for="{{ form.sold_odometer.id_for_label }}" class="form-label">Odometer at Sale</label>
+                                {{ form.sold_odometer }}
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-column-reverse flex-sm-row justify-content-between gap-2 mt-4 pt-3 border-top">
+                            <a href="{% if vehicle %}{% url 'vehicle_detail' vehicle.pk %}{% else %}{% url 'vehicle_list' %}{% endif %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>Save Vehicle
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,26 +1,272 @@
+:root {
+    --primary-color: #2563eb;
+    --primary-dark: #1d4ed8;
+    --secondary-color: #64748b;
+    --success-color: #059669;
+    --warning-color: #d97706;
+    --danger-color: #dc2626;
+    --light-bg: #f8fafc;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    --card-shadow-hover: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+}
+
+html {
+    min-height: 100%;
+}
+
 body {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    background-color: #f8f9fa;
-    color: #333;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--light-bg);
+    color: #1e293b;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
-form {
-    max-width: 400px;
-    margin: 2em auto;
-    padding: 1.5em;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 0 8px rgba(0,0,0,0.1);
+.main-content {
+    flex: 1;
+    padding-bottom: 2rem;
 }
 
-button {
-    background-color: #007bff;
-    color: white;
-    padding: 0.5em 1em;
+/* Navbar customization */
+.navbar {
+    box-shadow: var(--card-shadow);
+}
+
+.navbar-brand {
+    font-size: 1.4rem;
+    letter-spacing: -0.5px;
+}
+
+/* Cards */
+.card {
     border: none;
-    border-radius: 4px;
-    cursor: pointer;
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
-button:hover {
-    background-color: #0056b3;
+
+.card:hover {
+    box-shadow: var(--card-shadow-hover);
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 600;
+}
+
+.card-header:first-child {
+    border-radius: 12px 12px 0 0;
+}
+
+/* Buttons */
+.btn {
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 0.5rem 1.25rem;
+    transition: all 0.15s ease;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.btn-outline-primary {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* Forms */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    padding: 0.625rem 0.875rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-label {
+    font-weight: 500;
+    color: #475569;
+    font-size: 0.875rem;
+    margin-bottom: 0.375rem;
+}
+
+/* Page headers */
+h1 {
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+}
+
+.lead {
+    color: var(--secondary-color);
+}
+
+/* Badges */
+.badge {
+    font-weight: 500;
+    padding: 0.375em 0.75em;
+    border-radius: 6px;
+}
+
+/* Vehicle cards */
+.card-title {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+/* Definition lists in detail view */
+dl.row dt {
+    color: #64748b;
+    font-weight: 500;
+}
+
+dl.row dd {
+    color: #1e293b;
+}
+
+/* Footer */
+.footer {
+    border-top: 1px solid #e2e8f0;
+}
+
+/* Form switch */
+.form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* Alert improvements */
+.alert {
+    border: none;
+    border-radius: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.75rem;
+    }
+
+    .card {
+        border-radius: 10px;
+    }
+
+    .btn {
+        padding: 0.625rem 1rem;
+    }
+
+    /* Stack buttons on mobile */
+    .d-flex.justify-content-between {
+        flex-direction: column-reverse;
+        gap: 0.75rem;
+    }
+
+    .d-flex.justify-content-between .btn {
+        width: 100%;
+    }
+
+    /* Full width cards on mobile */
+    .card-footer .btn {
+        width: 100%;
+    }
+
+    /* Adjust detail page layout */
+    dl.row dt, dl.row dd {
+        padding-bottom: 0.5rem;
+    }
+
+    dl.row dt {
+        margin-bottom: 0;
+    }
+
+    /* Mobile header adjustments */
+    .d-flex.justify-content-between.align-items-center {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 1rem;
+    }
+
+    .d-flex.justify-content-between.align-items-center > div:last-child {
+        width: 100%;
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .d-flex.justify-content-between.align-items-center > div:last-child .btn {
+        flex: 1;
+    }
+}
+
+@media (max-width: 576px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+
+    /* Smaller form fields on mobile */
+    .form-control, .form-select {
+        font-size: 16px; /* Prevents iOS zoom on focus */
+    }
+}
+
+/* Auth pages styling */
+.auth-page {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+}
+
+.auth-page .card {
+    border-radius: 16px;
+}
+
+.auth-page .form-control-lg {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+}
+
+@media (max-width: 576px) {
+    .auth-page {
+        align-items: flex-start;
+        padding-top: 1rem;
+    }
+
+    .auth-page .card-body {
+        padding: 1.5rem !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    .navbar, .footer, .btn {
+        display: none !important;
+    }
+
+    .card {
+        box-shadow: none;
+        border: 1px solid #e2e8f0;
+    }
 }
