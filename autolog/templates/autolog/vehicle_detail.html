@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}{{ vehicle }} - jAutoLog{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+            <div>
+                <h1 class="mb-1">
+                    <i class="bi bi-car-front me-2"></i>{{ vehicle }}
+                </h1>
+                <div class="mt-2">
+                    {% if vehicle.is_sold %}
+                    <span class="badge bg-secondary"><i class="bi bi-tag me-1"></i>Sold</span>
+                    {% else %}
+                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'vehicle_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to List
+                </a>
+                <a href="{% url 'vehicle_edit' vehicle.pk %}" class="btn btn-primary">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Basic Information</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-5 col-sm-4">Year</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.year }}</dd>
+
+                        <dt class="col-5 col-sm-4">Make</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.make }}</dd>
+
+                        <dt class="col-5 col-sm-4">Model</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.model }}</dd>
+
+                        <dt class="col-5 col-sm-4">Color</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.color|default:"-" }}</dd>
+
+                        <dt class="col-5 col-sm-4">Fuel Type</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.get_fuel_type_display }}</dd>
+
+                        <dt class="col-5 col-sm-4">State</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.state|default:"-" }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-card-text me-2"></i>Registration Details</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-5 col-sm-4">VIN Number</dt>
+                        <dd class="col-7 col-sm-8 text-break">{{ vehicle.vin_number|default:"-" }}</dd>
+
+                        <dt class="col-5 col-sm-4">License Plate</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.license_plate_number|default:"-" }}</dd>
+
+                        <dt class="col-5 col-sm-4">Registration #</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.registration_number|default:"-" }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-cart-check me-2"></i>Purchase Information</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-5 col-sm-4">Purchase Date</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.purchased_date|default:"-" }}</dd>
+
+                        <dt class="col-5 col-sm-4">Purchase Price</dt>
+                        <dd class="col-7 col-sm-8">{% if vehicle.purchased_price %}${{ vehicle.purchased_price|floatformat:2 }}{% else %}-{% endif %}</dd>
+
+                        <dt class="col-5 col-sm-4">Odometer</dt>
+                        <dd class="col-7 col-sm-8">{% if vehicle.purchased_odometer %}{{ vehicle.purchased_odometer|floatformat:0 }} mi{% else %}-{% endif %}</dd>
+
+                        <dt class="col-5 col-sm-4">Dealer/Seller</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.dealer_name|default:"-" }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100 {% if vehicle.is_sold %}sold-card{% endif %}">
+                <div class="card-header {% if vehicle.is_sold %}bg-secondary text-white{% endif %}">
+                    <h5 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Sale Information</h5>
+                </div>
+                <div class="card-body">
+                    {% if vehicle.is_sold %}
+                    <dl class="row mb-0">
+                        <dt class="col-5 col-sm-4">Sold Date</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.sold_date }}</dd>
+
+                        <dt class="col-5 col-sm-4">Sale Price</dt>
+                        <dd class="col-7 col-sm-8">{% if vehicle.sold_price %}${{ vehicle.sold_price|floatformat:2 }}{% else %}-{% endif %}</dd>
+
+                        <dt class="col-5 col-sm-4">Odometer</dt>
+                        <dd class="col-7 col-sm-8">{% if vehicle.sold_odometer %}{{ vehicle.sold_odometer|floatformat:0 }} mi{% else %}-{% endif %}</dd>
+                    </dl>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="bi bi-car-front text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mb-0 mt-2">This vehicle has not been sold.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
