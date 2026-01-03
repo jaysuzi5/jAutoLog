@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}{{ vehicle }} - jAutoLog{% endblock %}
 
@@ -92,10 +93,10 @@
                         <dd class="col-7 col-sm-8">{{ vehicle.purchased_date|default:"-" }}</dd>
 
                         <dt class="col-5 col-sm-4">Purchase Price</dt>
-                        <dd class="col-7 col-sm-8">{% if vehicle.purchased_price %}${{ vehicle.purchased_price|floatformat:2 }}{% else %}-{% endif %}</dd>
+                        <dd class="col-7 col-sm-8">{% if vehicle.purchased_price %}${{ vehicle.purchased_price|floatformat:2|intcomma }}{% else %}-{% endif %}</dd>
 
                         <dt class="col-5 col-sm-4">Odometer</dt>
-                        <dd class="col-7 col-sm-8">{% if vehicle.purchased_odometer %}{{ vehicle.purchased_odometer|floatformat:0 }} mi{% else %}-{% endif %}</dd>
+                        <dd class="col-7 col-sm-8">{% if vehicle.purchased_odometer %}{{ vehicle.purchased_odometer|intcomma }} mi{% else %}-{% endif %}</dd>
 
                         <dt class="col-5 col-sm-4">Dealer/Seller</dt>
                         <dd class="col-7 col-sm-8">{{ vehicle.dealer_name|default:"-" }}</dd>
@@ -116,10 +117,10 @@
                         <dd class="col-7 col-sm-8">{{ vehicle.sold_date }}</dd>
 
                         <dt class="col-5 col-sm-4">Sale Price</dt>
-                        <dd class="col-7 col-sm-8">{% if vehicle.sold_price %}${{ vehicle.sold_price|floatformat:2 }}{% else %}-{% endif %}</dd>
+                        <dd class="col-7 col-sm-8">{% if vehicle.sold_price %}${{ vehicle.sold_price|floatformat:2|intcomma }}{% else %}-{% endif %}</dd>
 
                         <dt class="col-5 col-sm-4">Odometer</dt>
-                        <dd class="col-7 col-sm-8">{% if vehicle.sold_odometer %}{{ vehicle.sold_odometer|floatformat:0 }} mi{% else %}-{% endif %}</dd>
+                        <dd class="col-7 col-sm-8">{% if vehicle.sold_odometer %}{{ vehicle.sold_odometer|intcomma }} mi{% else %}-{% endif %}</dd>
                     </dl>
                     {% else %}
                     <div class="text-center py-3">

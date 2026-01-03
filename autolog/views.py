@@ -7,32 +7,39 @@ from .forms import VehicleForm
 
 @login_required
 def home(request):
+    active_vehicles = Vehicle.objects.filter(
+        user=request.user,
+        sold_date__isnull=True
+    )
     log_event(
         request=request,
         event="Home view was accessed in jautolog",
-        level="DEBUG"
+        level="DEBUG",
+        active_vehicle_count=active_vehicles.count()
     )
-    return render(request, "autolog/home.html")
+    return render(request, "autolog/home.html", {
+        'vehicles': active_vehicles,
+    })
 
 
 @login_required
 def vehicle_list(request):
-    show_sold = request.GET.get('show_sold', 'false') == 'true'
+    hide_sold = request.GET.get('hide_sold', 'false') == 'true'
     vehicles = Vehicle.objects.filter(user=request.user)
 
-    if not show_sold:
+    if hide_sold:
         vehicles = vehicles.filter(sold_date__isnull=True)
 
     log_event(
         request=request,
         event="Vehicle list viewed",
         level="DEBUG",
-        show_sold=show_sold,
+        hide_sold=hide_sold,
         vehicle_count=vehicles.count()
     )
     return render(request, "autolog/vehicle_list.html", {
         'vehicles': vehicles,
-        'show_sold': show_sold,
+        'hide_sold': hide_sold,
     })
 
 
