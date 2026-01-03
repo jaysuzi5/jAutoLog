@@ -16,10 +16,10 @@
     <div class="card mb-4">
         <div class="card-body py-2">
             <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" role="switch" id="showSoldToggle"
-                       {% if show_sold %}checked{% endif %}
+                <input class="form-check-input" type="checkbox" role="switch" id="hideSoldToggle"
+                       {% if hide_sold %}checked{% endif %}
                        onchange="toggleSoldVehicles(this.checked)">
-                <label class="form-check-label" for="showSoldToggle">Show sold vehicles</label>
+                <label class="form-check-label" for="hideSoldToggle">Hide sold vehicles</label>
             </div>
         </div>
     </div>
@@ -65,10 +65,10 @@
             <i class="bi bi-car-front text-muted" style="font-size: 3rem;"></i>
             <h5 class="mt-3">No vehicles found</h5>
             <p class="text-muted mb-3">
-                {% if show_sold %}
-                You haven't added any vehicles yet.
+                {% if hide_sold %}
+                No active vehicles. Uncheck "Hide sold vehicles" to see all vehicles.
                 {% else %}
-                No active vehicles. Toggle "Show sold vehicles" to see sold ones.
+                You haven't added any vehicles yet.
                 {% endif %}
             </p>
             <a href="{% url 'vehicle_create' %}" class="btn btn-primary">
@@ -80,12 +80,12 @@
 </div>
 
 <script>
-function toggleSoldVehicles(showSold) {
+function toggleSoldVehicles(hideSold) {
     const url = new URL(window.location.href);
-    if (showSold) {
-        url.searchParams.set('show_sold', 'true');
+    if (hideSold) {
+        url.searchParams.set('hide_sold', 'true');
     } else {
-        url.searchParams.delete('show_sold');
+        url.searchParams.delete('hide_sold');
     }
     window.location.href = url.toString();
 }
