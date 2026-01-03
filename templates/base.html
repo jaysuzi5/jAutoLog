@@ -26,6 +26,9 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'vehicle_list' %}"><i class="bi bi-car-front me-1"></i>Vehicles</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'vehicle_import' %}"><i class="bi bi-upload me-1"></i>Import</a>
+                    </li>
                 </ul>
                 {% if user.is_authenticated %}
                 <ul class="navbar-nav">
