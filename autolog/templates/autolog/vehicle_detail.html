@@ -23,6 +23,14 @@
                 <a href="{% url 'vehicle_list' %}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Back to List
                 </a>
+                {% if not vehicle.is_sold %}
+                <a href="{% url 'fuel_entry_create' vehicle.pk %}" class="btn btn-success">
+                    <i class="bi bi-fuel-pump me-1"></i>Add Fuel
+                </a>
+                <a href="{% url 'fuel_entry_import' vehicle.pk %}" class="btn btn-outline-success">
+                    <i class="bi bi-upload me-1"></i>Import Fuel
+                </a>
+                {% endif %}
                 <a href="{% url 'vehicle_edit' vehicle.pk %}" class="btn btn-primary">
                     <i class="bi bi-pencil me-1"></i>Edit
                 </a>
@@ -132,5 +140,259 @@
             </div>
         </div>
     </div>
+
+    <!-- MPG Control Chart -->
+    {% if chart_data %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up me-2"></i>{% if vehicle.fuel_type == 'electric' %}MPGe{% else %}MPG{% endif %} Control Chart
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="mpgControlChart" style="max-height: 400px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Fuel Entries Section -->
+    {% if fuel_entries %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-fuel-pump me-2"></i>Fuel Entries ({{ fuel_entries.count }})
+                        </h5>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="fuelEntriesTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="sortable" data-sort="date">Date <i class="bi bi-arrow-down-up"></i></th>
+                                    <th class="sortable" data-sort="odometer">Odometer <i class="bi bi-arrow-down-up"></i></th>
+                                    <th class="sortable" data-sort="distance">Distance <i class="bi bi-arrow-down-up"></i></th>
+                                    {% if vehicle.fuel_type == 'electric' %}
+                                    <th class="sortable" data-sort="mpge">MPGe <i class="bi bi-arrow-down-up"></i></th>
+                                    <th class="sortable" data-sort="kwh">KWH/Mi <i class="bi bi-arrow-down-up"></i></th>
+                                    {% else %}
+                                    <th class="sortable" data-sort="gallons">Gallons <i class="bi bi-arrow-down-up"></i></th>
+                                    <th class="sortable" data-sort="mpg">MPG <i class="bi bi-arrow-down-up"></i></th>
+                                    {% endif %}
+                                    <th class="sortable" data-sort="cost">Cost <i class="bi bi-arrow-down-up"></i></th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in fuel_entries %}
+                                <tr>
+                                    <td data-value="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</td>
+                                    <td data-value="{{ entry.odometer }}">{{ entry.odometer|intcomma }}</td>
+                                    <td data-value="{{ entry.distance_traveled }}">{{ entry.distance_traveled|intcomma }}</td>
+                                    {% if vehicle.fuel_type == 'electric' %}
+                                    <td data-value="{{ entry.mpge }}">{{ entry.mpge|floatformat:1 }}</td>
+                                    <td data-value="{{ entry.kwh_per_mile }}">{{ entry.kwh_per_mile }}</td>
+                                    {% else %}
+                                    <td data-value="{{ entry.gallons }}">{{ entry.gallons|floatformat:1 }}</td>
+                                    <td data-value="{{ entry.mpg }}">{{ entry.mpg|floatformat:1 }}</td>
+                                    {% endif %}
+                                    <td data-value="{{ entry.cost }}">${{ entry.cost|floatformat:2|intcomma }}</td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'fuel_entry_detail' entry.pk %}" class="btn btn-outline-primary" title="View">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{% url 'fuel_entry_edit' entry.pk %}" class="btn btn-outline-secondary" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{% url 'fuel_entry_delete' entry.pk %}" class="btn btn-outline-danger" title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // MPG Control Chart
+    {% if chart_data_json %}
+    const ctx = document.getElementById('mpgControlChart');
+    if (ctx) {
+        const chartData = {{ chart_data_json|safe }};
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.dates,
+                datasets: [
+                    {
+                        label: chartData.metric_label,
+                        data: chartData.efficiency_values,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        tension: 0.1,
+                        order: 1
+                    },
+                    {
+                        label: 'AVG',
+                        data: Array(chartData.dates.length).fill(chartData.avg),
+                        borderColor: 'rgb(100, 100, 100)',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        borderDash: [],
+                        order: 2
+                    },
+                    {
+                        label: 'STD+3',
+                        data: Array(chartData.dates.length).fill(chartData.std_plus_3),
+                        borderColor: 'rgb(255, 99, 71)',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        order: 3
+                    },
+                    {
+                        label: 'STD-3',
+                        data: Array(chartData.dates.length).fill(chartData.std_minus_3),
+                        borderColor: 'rgb(255, 99, 71)',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        order: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2.5,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        },
+                        grid: {
+                            display: true,
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: chartData.metric_label
+                        },
+                        grid: {
+                            display: true,
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Table sorting
+    const table = document.getElementById('fuelEntriesTable');
+    if (!table) return;
+
+    const headers = table.querySelectorAll('th.sortable');
+    let currentSort = { column: null, direction: 'asc' };
+
+    headers.forEach(header => {
+        header.style.cursor = 'pointer';
+        header.addEventListener('click', function() {
+            const sortKey = this.getAttribute('data-sort');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            // Determine sort direction
+            if (currentSort.column === sortKey) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.direction = 'asc';
+            }
+            currentSort.column = sortKey;
+
+            // Update header icons
+            headers.forEach(h => {
+                const icon = h.querySelector('i');
+                if (h === header) {
+                    icon.className = currentSort.direction === 'asc'
+                        ? 'bi bi-arrow-up'
+                        : 'bi bi-arrow-down';
+                } else {
+                    icon.className = 'bi bi-arrow-down-up';
+                }
+            });
+
+            // Sort rows
+            rows.sort((a, b) => {
+                const aCell = a.querySelector(`td[data-value]`);
+                const bCell = b.querySelector(`td[data-value]`);
+
+                // Find the correct cell index based on sortKey
+                const headerIndex = Array.from(headers).indexOf(header);
+                const aCells = a.querySelectorAll('td');
+                const bCells = b.querySelectorAll('td');
+
+                const aValue = aCells[headerIndex]?.getAttribute('data-value');
+                const bValue = bCells[headerIndex]?.getAttribute('data-value');
+
+                // Try to parse as numbers first
+                const aNum = parseFloat(aValue);
+                const bNum = parseFloat(bValue);
+
+                let comparison = 0;
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    comparison = aNum - bNum;
+                } else {
+                    comparison = aValue.localeCompare(bValue);
+                }
+
+                return currentSort.direction === 'asc' ? comparison : -comparison;
+            });
+
+            // Re-append sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    });
+});
+</script>
 {% endblock %}

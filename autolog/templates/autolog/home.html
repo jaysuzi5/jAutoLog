@@ -29,9 +29,14 @@
                     </div>
                 </div>
                 <div class="card-footer bg-transparent border-top-0 pt-0">
-                    <a href="{% url 'vehicle_detail' vehicle.pk %}" class="btn btn-outline-primary w-100">
-                        <i class="bi bi-eye me-1"></i>View Details
-                    </a>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'vehicle_detail' vehicle.pk %}" class="btn btn-outline-primary">
+                            <i class="bi bi-eye me-1"></i>View Details
+                        </a>
+                        <a href="{% url 'fuel_entry_create' vehicle.pk %}" class="btn btn-success">
+                            <i class="bi bi-fuel-pump me-1"></i>Add Fuel
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

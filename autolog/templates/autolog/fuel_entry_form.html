@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}{% if fuel_entry %}Edit{% else %}Add{% endif %} Fuel - {{ vehicle }} - jAutoLog{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-6">
+            <div class="page-header mb-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                    <h1 class="mb-0">
+                        <i class="bi bi-{% if fuel_entry %}pencil{% else %}fuel-pump{% endif %} me-2"></i>{% if fuel_entry %}Edit{% else %}Add{% endif %} Fuel - {{ vehicle }}
+                    </h1>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{% url 'vehicle_detail' vehicle.pk %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-1"></i>Cancel
+                        </a>
+                        <button type="submit" form="fuel-entry-form" class="btn btn-success">
+                            <i class="bi bi-check-lg me-1"></i>Save Entry
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <form method="post" id="fuel-entry-form" novalidate>
+        {% csrf_token %}
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-{% if is_electric %}lightning-charge{% else %}fuel-pump-fill{% endif %} me-2"></i>
+                    {% if is_electric %}Electric Charging{% else %}Fuel Fill-Up{% endif %} Details
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger" role="alert">
+                    {% for error in form.non_field_errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="row mb-3">
+                    <label for="{{ form.date.id_for_label }}" class="col-5 col-sm-4 col-form-label">Date</label>
+                    <div class="col-7 col-sm-8">
+                        {{ form.date }}
+                        {% if form.date.errors %}<div class="text-danger small">{{ form.date.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label for="{{ form.odometer.id_for_label }}" class="col-5 col-sm-4 col-form-label">Odometer</label>
+                    <div class="col-7 col-sm-8">
+                        {{ form.odometer }}
+                        {% if form.odometer.errors %}<div class="text-danger small">{{ form.odometer.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+
+                {% if is_electric %}
+                <!-- Electric vehicle fields -->
+                <div class="row mb-3">
+                    <label for="{{ form.kwh_per_mile.id_for_label }}" class="col-5 col-sm-4 col-form-label">{{ form.kwh_per_mile.label }}</label>
+                    <div class="col-7 col-sm-8">
+                        {{ form.kwh_per_mile }}
+                        {% if form.kwh_per_mile.errors %}<div class="text-danger small">{{ form.kwh_per_mile.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label for="{{ form.cost_per_kwh.id_for_label }}" class="col-5 col-sm-4 col-form-label">{{ form.cost_per_kwh.label }}</label>
+                    <div class="col-7 col-sm-8">
+                        {{ form.cost_per_kwh }}
+                        {% if form.cost_per_kwh.errors %}<div class="text-danger small">{{ form.cost_per_kwh.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label for="{{ form.cost_per_gallon_reference.id_for_label }}" class="col-5 col-sm-4 col-form-label">{{ form.cost_per_gallon_reference.label }}</label>
+                    <div class="col-7 col-sm-8">
+                        {{ form.cost_per_gallon_reference }}
+                        {% if form.cost_per_gallon_reference.errors %}<div class="text-danger small">{{ form.cost_per_gallon_reference.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <!-- Gasoline/Diesel/Hybrid fields -->
+                <div class="row mb-3">
+                    <label for="{{ form.gallons.id_for_label }}" class="col-5 col-sm-4 col-form-label">Gallons</label>
+                    <div class="col-7 col-sm-8">
+                        {{ form.gallons }}
+                        {% if form.gallons.errors %}<div class="text-danger small">{{ form.gallons.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label for="{{ form.cost.id_for_label }}" class="col-5 col-sm-4 col-form-label">Total Cost</label>
+                    <div class="col-7 col-sm-8">
+                        {{ form.cost }}
+                        {% if form.cost.errors %}<div class="text-danger small">{{ form.cost.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

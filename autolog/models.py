@@ -39,3 +39,76 @@ class Vehicle(models.Model):
     @property
     def is_sold(self):
         return self.sold_date is not None
+
+
+class FuelEntry(models.Model):
+    # Relationships
+    vehicle = models.ForeignKey(
+        Vehicle,
+        on_delete=models.CASCADE,
+        related_name='fuel_entries'
+    )
+
+    # Common fields for all fuel types
+    date = models.DateField()
+    odometer = models.PositiveIntegerField()
+    cost = models.DecimalField(max_digits=6, decimal_places=2)  # Max $9999.99
+
+    # Gasoline/Diesel/Hybrid specific fields
+    gallons = models.DecimalField(
+        max_digits=5,
+        decimal_places=3,  # Support precision like 10.255 gallons
+        null=True,
+        blank=True
+    )
+    mpg = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,  # e.g., 45.67 MPG
+        null=True,
+        blank=True
+    )
+
+    # Electric vehicle specific fields
+    kwh_per_mile = models.DecimalField(
+        max_digits=4,
+        decimal_places=3,  # e.g., 0.300
+        null=True,
+        blank=True
+    )
+    cost_per_kwh = models.DecimalField(
+        max_digits=5,
+        decimal_places=3,  # e.g., 0.125
+        null=True,
+        blank=True
+    )
+    cost_per_gallon_reference = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,  # e.g., 4.50
+        null=True,
+        blank=True,
+        help_text="Reference gas price for MPGe calculation"
+    )
+    mpge = models.DecimalField(
+        max_digits=5,
+        decimal_places=1,  # e.g., 110.5 MPGe
+        null=True,
+        blank=True
+    )
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+        verbose_name_plural = "Fuel entries"
+
+    def __str__(self):
+        if self.mpg:
+            return f"{self.vehicle} - {self.date} ({self.mpg} MPG)"
+        else:
+            return f"{self.vehicle} - {self.date} ({self.mpge} MPGe)"
+
+    @property
+    def is_electric(self):
+        return self.vehicle.fuel_type == 'electric'
