@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from config.logging_utils import log_event
 from django.contrib.auth.decorators import login_required
-from .models import Vehicle, FuelEntry
-from .forms import VehicleForm, GasolineFuelForm, ElectricFuelForm
+from .models import Vehicle, FuelEntry, MaintenanceEntry
+from .forms import VehicleForm, GasolineFuelForm, ElectricFuelForm, MaintenanceEntryForm
 
 
 @login_required
@@ -344,5 +344,171 @@ def fuel_entry_delete(request, pk):
 
     return render(request, 'autolog/fuel_entry_confirm_delete.html', {
         'fuel_entry': fuel_entry,
+        'vehicle': vehicle,
+    })
+
+
+# Maintenance Entry Views
+
+@login_required
+def maintenance_entry_list(request, vehicle_pk):
+    """Display all maintenance entries for a vehicle with category filtering"""
+    vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)
+
+    # Get filter category from query params
+    filter_category = request.GET.get('category', '')
+
+    # Get all maintenance entries
+    entries = vehicle.maintenance_entries.all()
+
+    # Apply category filter if specified
+    if filter_category and filter_category != 'all':
+        entries = entries.filter(category=filter_category)
+
+    # Calculate totals by category
+    from django.db.models import Sum
+    totals_by_category = {}
+    for category_code, category_name in MaintenanceEntry.CATEGORY_CHOICES:
+        total = vehicle.maintenance_entries.filter(category=category_code).aggregate(
+            total_cost=Sum('cost')
+        )['total_cost'] or 0
+        totals_by_category[category_code] = {
+            'name': category_name,
+            'total': total,
+            'count': vehicle.maintenance_entries.filter(category=category_code).count()
+        }
+
+    log_event(
+        request=request,
+        event="Maintenance entry list viewed",
+        level="DEBUG",
+        vehicle_id=vehicle.id,
+        filter_category=filter_category,
+        entry_count=entries.count()
+    )
+
+    return render(request, 'autolog/maintenance_entry_list.html', {
+        'vehicle': vehicle,
+        'entries': entries,
+        'filter_category': filter_category,
+        'totals_by_category': totals_by_category,
+        'categories': MaintenanceEntry.CATEGORY_CHOICES,
+    })
+
+
+@login_required
+def maintenance_entry_create(request, vehicle_pk):
+    """Create a new maintenance entry for a vehicle"""
+    vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)
+
+    if request.method == 'POST':
+        form = MaintenanceEntryForm(request.POST, vehicle=vehicle)
+        if form.is_valid():
+            entry = form.save(commit=False)
+            entry.vehicle = vehicle
+            entry.save()
+
+            log_event(
+                request=request,
+                event="Maintenance entry created",
+                level="INFO",
+                vehicle_id=vehicle.id,
+                entry_id=entry.id,
+                category=entry.category,
+                cost=float(entry.cost)
+            )
+
+            return redirect('maintenance_entry_list', vehicle_pk=vehicle.pk)
+    else:
+        form = MaintenanceEntryForm(vehicle=vehicle)
+
+    log_event(
+        request=request,
+        event="Maintenance entry create form accessed",
+        level="DEBUG",
+        vehicle_id=vehicle.id
+    )
+
+    return render(request, 'autolog/maintenance_entry_form.html', {
+        'form': form,
+        'vehicle': vehicle,
+        'action': 'Add',
+    })
+
+
+@login_required
+def maintenance_entry_edit(request, pk):
+    """Edit an existing maintenance entry"""
+    entry = get_object_or_404(
+        MaintenanceEntry,
+        pk=pk,
+        vehicle__user=request.user
+    )
+    vehicle = entry.vehicle
+
+    if request.method == 'POST':
+        form = MaintenanceEntryForm(request.POST, vehicle=vehicle, instance=entry)
+        if form.is_valid():
+            entry = form.save()
+
+            log_event(
+                request=request,
+                event="Maintenance entry updated",
+                level="INFO",
+                vehicle_id=vehicle.id,
+                entry_id=entry.id,
+                category=entry.category
+            )
+
+            return redirect('maintenance_entry_list', vehicle_pk=vehicle.pk)
+    else:
+        form = MaintenanceEntryForm(vehicle=vehicle, instance=entry)
+
+    log_event(
+        request=request,
+        event="Maintenance entry edit form accessed",
+        level="DEBUG",
+        entry_id=entry.id
+    )
+
+    return render(request, 'autolog/maintenance_entry_form.html', {
+        'form': form,
+        'vehicle': vehicle,
+        'action': 'Edit',
+        'entry': entry,
+    })
+
+
+@login_required
+def maintenance_entry_delete(request, pk):
+    """Delete a maintenance entry"""
+    entry = get_object_or_404(
+        MaintenanceEntry,
+        pk=pk,
+        vehicle__user=request.user
+    )
+    vehicle = entry.vehicle
+
+    if request.method == 'POST':
+        log_event(
+            request=request,
+            event="Maintenance entry deleted",
+            level="INFO",
+            vehicle_id=vehicle.id,
+            entry_id=entry.id,
+            category=entry.category
+        )
+        entry.delete()
+        return redirect('maintenance_entry_list', vehicle_pk=vehicle.pk)
+
+    log_event(
+        request=request,
+        event="Maintenance entry delete confirmation accessed",
+        level="DEBUG",
+        entry_id=entry.id
+    )
+
+    return render(request, 'autolog/maintenance_entry_confirm_delete.html', {
+        'entry': entry,
         'vehicle': vehicle,
     })

@@ -1,5 +1,5 @@
 from django import forms
-from .models import Vehicle, FuelEntry
+from .models import Vehicle, FuelEntry, MaintenanceEntry
 
 
 class VehicleForm(forms.ModelForm):
@@ -269,3 +269,58 @@ class ElectricFuelForm(forms.ModelForm):
                 cleaned_data['cost'] = round(total_cost, 2)
 
         return cleaned_data
+
+
+def get_previous_odometer_maintenance(vehicle):
+    """Get the highest odometer reading from maintenance, fuel, or purchase"""
+    prev_maintenance = vehicle.maintenance_entries.order_by('-odometer').first()
+    prev_fuel = vehicle.fuel_entries.order_by('-odometer').first()
+
+    candidates = []
+    if prev_maintenance:
+        candidates.append(prev_maintenance.odometer)
+    if prev_fuel:
+        candidates.append(prev_fuel.odometer)
+    if vehicle.purchased_odometer:
+        candidates.append(vehicle.purchased_odometer)
+
+    return max(candidates) if candidates else 0
+
+
+class MaintenanceEntryForm(forms.ModelForm):
+    class Meta:
+        model = MaintenanceEntry
+        fields = ['category', 'date', 'odometer', 'cost', 'notes']
+        widgets = {
+            'category': forms.Select(attrs={'class': 'form-select'}),
+            'date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'odometer': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Current odometer reading'}),
+            'cost': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Total cost', 'step': '0.01', 'min': '0'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Optional notes'}),
+        }
+
+    def __init__(self, *args, vehicle=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.vehicle = vehicle
+
+    def clean_odometer(self):
+        odometer = self.cleaned_data.get('odometer')
+        if not odometer:
+            return odometer
+
+        # Basic sanity checks only (no comparison to previous readings)
+        if odometer < 0:
+            raise forms.ValidationError('Odometer reading cannot be negative')
+
+        if odometer > 1000000:
+            raise forms.ValidationError('Odometer reading cannot exceed 1,000,000 miles')
+
+        return odometer
+
+    def clean_cost(self):
+        cost = self.cleaned_data.get('cost')
+        if cost and cost > 50000:
+            raise forms.ValidationError('Cost cannot exceed $50,000')
+        if cost and cost < 0:
+            raise forms.ValidationError('Cost cannot be negative')
+        return cost

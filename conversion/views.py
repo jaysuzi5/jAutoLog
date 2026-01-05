@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from autolog.models import Vehicle, FuelEntry
+from autolog.models import Vehicle, FuelEntry, MaintenanceEntry
 from autolog.forms import get_previous_odometer
 from config.logging_utils import log_event
 
@@ -394,3 +394,190 @@ def create_fuel_entry_from_json(data, vehicle):
         fuel_entry.mpg = round(mpg, 2)
 
     return fuel_entry
+
+
+@login_required
+def maintenance_entry_import(request, vehicle_pk):
+    """Import maintenance entries for a specific vehicle from nested JSON data"""
+    vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)
+
+    if request.method == 'POST':
+        json_text = request.POST.get('json_data', '').strip()
+
+        if not json_text:
+            messages.error(request, 'Please provide JSON data.')
+            return render(request, "conversion/maintenance_entry_import.html", {'vehicle': vehicle})
+
+        try:
+            data = json.loads(json_text)
+        except json.JSONDecodeError as e:
+            messages.error(request, f'Invalid JSON format: {e}')
+            log_event(
+                request=request,
+                event="Maintenance entry import failed - invalid JSON",
+                level="WARNING",
+                vehicle_id=vehicle.id,
+                error=str(e)
+            )
+            return render(request, "conversion/maintenance_entry_import.html", {
+                'vehicle': vehicle,
+                'json_data': json_text
+            })
+
+        # Expect nested format: {"maintenance": {"oil": [...], "repairs": [...]}}
+        if not isinstance(data, dict) or 'maintenance' not in data:
+            messages.error(request, 'JSON must contain a "maintenance" object with category arrays.')
+            return render(request, "conversion/maintenance_entry_import.html", {
+                'vehicle': vehicle,
+                'json_data': json_text
+            })
+
+        maintenance_data = data['maintenance']
+        if not isinstance(maintenance_data, dict):
+            messages.error(request, 'The "maintenance" field must be an object with category keys.')
+            return render(request, "conversion/maintenance_entry_import.html", {
+                'vehicle': vehicle,
+                'json_data': json_text
+            })
+
+        created_count = 0
+        errors = []
+
+        # Valid categories
+        valid_categories = ['oil', 'repairs', 'tires', 'wash', 'accessories']
+
+        # Process each category
+        for category, entries in maintenance_data.items():
+            if category not in valid_categories:
+                errors.append(f"Unknown category: {category}")
+                continue
+
+            if not isinstance(entries, list):
+                errors.append(f"Category '{category}' must contain an array of entries")
+                continue
+
+            # Process each entry in this category
+            for idx, entry_data in enumerate(entries):
+                try:
+                    entry = create_maintenance_entry_from_json(entry_data, vehicle, category)
+                    entry.save()
+                    created_count += 1
+                except ValueError as e:
+                    errors.append(f"{category.capitalize()} entry {idx + 1}: {e}")
+                except Exception as e:
+                    errors.append(f"{category.capitalize()} entry {idx + 1}: Unexpected error - {e}")
+
+        if created_count > 0:
+            messages.success(request, f'Successfully imported {created_count} maintenance entry(ies) for {vehicle}.')
+            log_event(
+                request=request,
+                event="Maintenance entries imported",
+                level="INFO",
+                vehicle_id=vehicle.id,
+                count=created_count
+            )
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            log_event(
+                request=request,
+                event="Maintenance entry import had errors",
+                level="WARNING",
+                vehicle_id=vehicle.id,
+                error_count=len(errors)
+            )
+
+        if created_count > 0 and not errors:
+            return redirect('maintenance_entry_list', vehicle_pk=vehicle.pk)
+
+        return render(request, "conversion/maintenance_entry_import.html", {
+            'vehicle': vehicle,
+            'json_data': json_text
+        })
+
+    log_event(
+        request=request,
+        event="Maintenance entry import page accessed",
+        level="DEBUG",
+        vehicle_id=vehicle.id
+    )
+    return render(request, "conversion/maintenance_entry_import.html", {'vehicle': vehicle})
+
+
+def create_maintenance_entry_from_json(data, vehicle, category):
+    """Create MaintenanceEntry from JSON data"""
+
+    # Field mapping (JSON camelCase -> model snake_case)
+    field_mapping = {
+        'date': 'date',
+        'odometer': 'odometer',
+        'cost': 'cost',
+        'notes': 'notes',
+    }
+
+    # Required fields
+    required_fields = ['date', 'odometer', 'cost']
+
+    # Validate required fields
+    for field in required_fields:
+        if field not in data or data[field] in (None, ''):
+            raise ValueError(f"Missing required field: {field}")
+
+    entry_data = {'vehicle': vehicle, 'category': category}
+
+    # Process fields with type conversion
+    for json_key, model_key in field_mapping.items():
+        if json_key in data and data[json_key] is not None:
+            value = data[json_key]
+
+            # Date conversion
+            if model_key == 'date':
+                if isinstance(value, str):
+                    try:
+                        value = datetime.strptime(value, '%Y-%m-%d').date()
+                    except ValueError:
+                        raise ValueError(f"Invalid date format for {json_key}: {value}. Use YYYY-MM-DD.")
+
+            # Decimal conversion
+            elif model_key == 'cost':
+                try:
+                    value = Decimal(str(value))
+                except (InvalidOperation, ValueError):
+                    raise ValueError(f"Invalid cost format for {json_key}: {value}")
+
+            # Integer conversion
+            elif model_key == 'odometer':
+                try:
+                    value = int(value)
+                except (ValueError, TypeError):
+                    raise ValueError(f"Invalid integer for {json_key}: {value}")
+
+            # Notes: convert None to empty string
+            elif model_key == 'notes' and value is None:
+                value = ''
+
+            entry_data[model_key] = value
+
+    # Set notes to empty string if not provided
+    if 'notes' not in entry_data:
+        entry_data['notes'] = ''
+
+    # Create entry
+    entry = MaintenanceEntry(**entry_data)
+
+    # Basic validation (no previous odometer check per user request)
+    if entry.odometer < 0:
+        raise ValueError(f"Odometer cannot be negative")
+
+    if entry.odometer > 1000000:
+        raise ValueError(f"Odometer cannot exceed 1,000,000 miles")
+
+    # Validate cost
+    if entry.cost > 50000:
+        raise ValueError(f"Cost cannot exceed $50,000")
+
+    if entry.cost < 0:
+        raise ValueError(f"Cost cannot be negative")
+
+    return entry

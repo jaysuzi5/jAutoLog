@@ -112,3 +112,38 @@ class FuelEntry(models.Model):
     @property
     def is_electric(self):
         return self.vehicle.fuel_type == 'electric'
+
+
+class MaintenanceEntry(models.Model):
+    CATEGORY_CHOICES = [
+        ('oil', 'Oil Change'),
+        ('repairs', 'Repairs'),
+        ('tires', 'Tires'),
+        ('wash', 'Wash'),
+        ('accessories', 'Accessories'),
+    ]
+
+    # Relationships
+    vehicle = models.ForeignKey(
+        Vehicle,
+        on_delete=models.CASCADE,
+        related_name='maintenance_entries'
+    )
+
+    # Core fields
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    date = models.DateField()
+    odometer = models.PositiveIntegerField()
+    cost = models.DecimalField(max_digits=8, decimal_places=2)  # Max $999,999.99
+    notes = models.TextField(blank=True, default='')
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+        verbose_name_plural = "Maintenance entries"
+
+    def __str__(self):
+        return f"{self.vehicle} - {self.get_category_display()} - {self.date}"

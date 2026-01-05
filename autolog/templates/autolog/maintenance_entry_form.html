@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Maintenance - {{ vehicle }} - jAutoLog{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-6">
+            <div class="page-header mb-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                    <h1 class="mb-0">
+                        <i class="bi bi-{% if entry %}pencil{% else %}wrench{% endif %} me-2"></i>{{ action }} Maintenance - {{ vehicle }}
+                    </h1>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{% url 'maintenance_entry_list' vehicle.pk %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-1"></i>Cancel
+                        </a>
+                        <button type="submit" form="maintenance-entry-form" class="btn btn-success">
+                            <i class="bi bi-check-lg me-1"></i>Save Entry
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <form method="post" id="maintenance-entry-form" novalidate>
+                {% csrf_token %}
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-wrench me-2"></i>Maintenance Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger" role="alert">
+                            {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="row mb-3">
+                            <label for="{{ form.category.id_for_label }}" class="col-5 col-sm-4 col-form-label">Category</label>
+                            <div class="col-7 col-sm-8">
+                                {{ form.category }}
+                                {% if form.category.errors %}<div class="text-danger small">{{ form.category.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <label for="{{ form.date.id_for_label }}" class="col-5 col-sm-4 col-form-label">Date</label>
+                            <div class="col-7 col-sm-8">
+                                {{ form.date }}
+                                {% if form.date.errors %}<div class="text-danger small">{{ form.date.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <label for="{{ form.odometer.id_for_label }}" class="col-5 col-sm-4 col-form-label">Odometer</label>
+                            <div class="col-7 col-sm-8">
+                                {{ form.odometer }}
+                                {% if form.odometer.errors %}<div class="text-danger small">{{ form.odometer.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <label for="{{ form.cost.id_for_label }}" class="col-5 col-sm-4 col-form-label">Total Cost</label>
+                            <div class="col-7 col-sm-8">
+                                {{ form.cost }}
+                                {% if form.cost.errors %}<div class="text-danger small">{{ form.cost.errors.0 }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <label for="{{ form.notes.id_for_label }}" class="col-5 col-sm-4 col-form-label">Notes</label>
+                            <div class="col-7 col-sm-8">
+                                {{ form.notes }}
+                                {% if form.notes.errors %}<div class="text-danger small">{{ form.notes.errors.0 }}</div>{% endif %}
+                                <small class="text-muted">Optional details about the maintenance</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
