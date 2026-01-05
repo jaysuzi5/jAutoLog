@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     home, vehicle_list, vehicle_create, vehicle_detail, vehicle_edit,
     fuel_entry_create, fuel_entry_detail, fuel_entry_edit, fuel_entry_delete,
-    maintenance_entry_list, maintenance_entry_create, maintenance_entry_edit, maintenance_entry_delete
+    maintenance_entry_list, maintenance_entry_create, maintenance_entry_edit, maintenance_entry_delete,
+    other_expense_list, other_expense_create, other_expense_edit, other_expense_delete
 )
 
 urlpatterns = [
@@ -23,4 +24,10 @@ urlpatterns = [
     path("vehicles/<int:vehicle_pk>/maintenance/add/", maintenance_entry_create, name="maintenance_entry_create"),
     path("maintenance/<int:pk>/edit/", maintenance_entry_edit, name="maintenance_entry_edit"),
     path("maintenance/<int:pk>/delete/", maintenance_entry_delete, name="maintenance_entry_delete"),
+
+    # Other expense URLs (insurance, registration)
+    path("vehicles/<int:vehicle_pk>/expenses/", other_expense_list, name="other_expense_list"),
+    path("vehicles/<int:vehicle_pk>/expenses/add/", other_expense_create, name="other_expense_create"),
+    path("expenses/<int:pk>/edit/", other_expense_edit, name="other_expense_edit"),
+    path("expenses/<int:pk>/delete/", other_expense_delete, name="other_expense_delete"),
 ]

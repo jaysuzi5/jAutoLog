@@ -147,3 +147,34 @@ class MaintenanceEntry(models.Model):
 
     def __str__(self):
         return f"{self.vehicle} - {self.get_category_display()} - {self.date}"
+
+
+class OtherExpense(models.Model):
+    EXPENSE_TYPE_CHOICES = [
+        ('insurance', 'Insurance'),
+        ('registration', 'Registration'),
+    ]
+
+    # Relationships
+    vehicle = models.ForeignKey(
+        Vehicle,
+        on_delete=models.CASCADE,
+        related_name='other_expenses'
+    )
+
+    # Core fields
+    expense_type = models.CharField(max_length=20, choices=EXPENSE_TYPE_CHOICES)
+    date = models.DateField()
+    cost = models.DecimalField(max_digits=8, decimal_places=2)  # Max $999,999.99
+    notes = models.TextField(blank=True, default='')
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+        verbose_name_plural = "Other expenses"
+
+    def __str__(self):
+        return f"{self.vehicle} - {self.get_expense_type_display()} - {self.date}"

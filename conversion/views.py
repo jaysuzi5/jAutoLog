@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from autolog.models import Vehicle, FuelEntry, MaintenanceEntry
+from autolog.models import Vehicle, FuelEntry, MaintenanceEntry, OtherExpense
 from autolog.forms import get_previous_odometer
 from config.logging_utils import log_event
 
@@ -581,3 +581,167 @@ def create_maintenance_entry_from_json(data, vehicle, category):
         raise ValueError(f"Cost cannot be negative")
 
     return entry
+
+
+@login_required
+def other_expense_import(request, vehicle_pk):
+    """Import other expenses (insurance, registration) for a specific vehicle from JSON data"""
+    vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)
+
+    if request.method == 'POST':
+        json_text = request.POST.get('json_data', '').strip()
+
+        if not json_text:
+            messages.error(request, 'Please provide JSON data.')
+            return render(request, "conversion/other_expense_import.html", {'vehicle': vehicle})
+
+        try:
+            data = json.loads(json_text)
+        except json.JSONDecodeError as e:
+            messages.error(request, f'Invalid JSON format: {e}')
+            log_event(
+                request=request,
+                event="Other expense import failed - invalid JSON",
+                level="WARNING",
+                vehicle_id=vehicle.id,
+                error=str(e)
+            )
+            return render(request, "conversion/other_expense_import.html", {
+                'vehicle': vehicle,
+                'json_data': json_text
+            })
+
+        # Expect flat format: {"insurance": [...], "registration": [...]}
+        if not isinstance(data, dict):
+            messages.error(request, 'JSON must be an object with "insurance" and/or "registration" arrays.')
+            return render(request, "conversion/other_expense_import.html", {
+                'vehicle': vehicle,
+                'json_data': json_text
+            })
+
+        created_count = 0
+        errors = []
+
+        # Valid expense types
+        valid_types = ['insurance', 'registration']
+
+        # Process each expense type
+        for expense_type, entries in data.items():
+            if expense_type not in valid_types:
+                errors.append(f"Unknown expense type: {expense_type}")
+                continue
+
+            if not isinstance(entries, list):
+                errors.append(f"Type '{expense_type}' must contain an array of entries")
+                continue
+
+            # Process each entry in this type
+            for idx, entry_data in enumerate(entries):
+                try:
+                    expense = create_other_expense_from_json(entry_data, vehicle, expense_type)
+                    expense.save()
+                    created_count += 1
+                except ValueError as e:
+                    errors.append(f"{expense_type.capitalize()} entry {idx + 1}: {e}")
+                except Exception as e:
+                    errors.append(f"{expense_type.capitalize()} entry {idx + 1}: Unexpected error - {e}")
+
+        if created_count > 0:
+            messages.success(request, f'Successfully imported {created_count} expense entry(ies) for {vehicle}.')
+            log_event(
+                request=request,
+                event="Other expenses imported",
+                level="INFO",
+                vehicle_id=vehicle.id,
+                count=created_count
+            )
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            log_event(
+                request=request,
+                event="Other expense import had errors",
+                level="WARNING",
+                vehicle_id=vehicle.id,
+                error_count=len(errors)
+            )
+
+        if created_count > 0 and not errors:
+            return redirect('other_expense_list', vehicle_pk=vehicle.pk)
+
+        return render(request, "conversion/other_expense_import.html", {
+            'vehicle': vehicle,
+            'json_data': json_text
+        })
+
+    log_event(
+        request=request,
+        event="Other expense import page accessed",
+        level="DEBUG",
+        vehicle_id=vehicle.id
+    )
+    return render(request, "conversion/other_expense_import.html", {'vehicle': vehicle})
+
+
+def create_other_expense_from_json(data, vehicle, expense_type):
+    """Create OtherExpense from JSON data"""
+
+    # Field mapping (JSON key -> model field)
+    field_mapping = {
+        'date': 'date',
+        'cost': 'cost',
+        'notes': 'notes',
+    }
+
+    # Required fields
+    required_fields = ['date', 'cost']
+
+    # Validate required fields
+    for field in required_fields:
+        if field not in data or data[field] in (None, ''):
+            raise ValueError(f"Missing required field: {field}")
+
+    entry_data = {'vehicle': vehicle, 'expense_type': expense_type}
+
+    # Process fields with type conversion
+    for json_key, model_key in field_mapping.items():
+        if json_key in data and data[json_key] is not None:
+            value = data[json_key]
+
+            # Date conversion
+            if model_key == 'date':
+                if isinstance(value, str):
+                    try:
+                        value = datetime.strptime(value, '%Y-%m-%d').date()
+                    except ValueError:
+                        raise ValueError(f"Invalid date format for {json_key}: {value}. Use YYYY-MM-DD.")
+
+            # Decimal conversion
+            elif model_key == 'cost':
+                try:
+                    value = Decimal(str(value))
+                except (InvalidOperation, ValueError):
+                    raise ValueError(f"Invalid cost format for {json_key}: {value}")
+
+            # Notes: convert None to empty string
+            elif model_key == 'notes' and value is None:
+                value = ''
+
+            entry_data[model_key] = value
+
+    # Set notes to empty string if not provided
+    if 'notes' not in entry_data:
+        entry_data['notes'] = ''
+
+    # Create expense
+    expense = OtherExpense(**entry_data)
+
+    # Validate cost
+    if expense.cost > 50000:
+        raise ValueError(f"Cost cannot exceed $50,000")
+
+    if expense.cost < 0:
+        raise ValueError(f"Cost cannot be negative")
+
+    return expense

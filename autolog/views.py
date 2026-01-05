@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from config.logging_utils import log_event
 from django.contrib.auth.decorators import login_required
-from .models import Vehicle, FuelEntry, MaintenanceEntry
-from .forms import VehicleForm, GasolineFuelForm, ElectricFuelForm, MaintenanceEntryForm
+from .models import Vehicle, FuelEntry, MaintenanceEntry, OtherExpense
+from .forms import VehicleForm, GasolineFuelForm, ElectricFuelForm, MaintenanceEntryForm, OtherExpenseForm
 
 
 @login_required
@@ -510,5 +510,171 @@ def maintenance_entry_delete(request, pk):
 
     return render(request, 'autolog/maintenance_entry_confirm_delete.html', {
         'entry': entry,
+        'vehicle': vehicle,
+    })
+
+
+# Other Expense Views (Insurance, Registration)
+
+@login_required
+def other_expense_list(request, vehicle_pk):
+    """Display all other expenses (insurance, registration) for a vehicle with type filtering"""
+    vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)
+
+    # Get filter type from query params
+    filter_type = request.GET.get('type', '')
+
+    # Get all other expenses
+    expenses = vehicle.other_expenses.all()
+
+    # Apply type filter if specified
+    if filter_type and filter_type != 'all':
+        expenses = expenses.filter(expense_type=filter_type)
+
+    # Calculate totals by type
+    from django.db.models import Sum
+    totals_by_type = {}
+    for type_code, type_name in OtherExpense.EXPENSE_TYPE_CHOICES:
+        total = vehicle.other_expenses.filter(expense_type=type_code).aggregate(
+            total_cost=Sum('cost')
+        )['total_cost'] or 0
+        totals_by_type[type_code] = {
+            'name': type_name,
+            'total': total,
+            'count': vehicle.other_expenses.filter(expense_type=type_code).count()
+        }
+
+    log_event(
+        request=request,
+        event="Other expenses list viewed",
+        level="DEBUG",
+        vehicle_id=vehicle.id,
+        filter_type=filter_type,
+        expense_count=expenses.count()
+    )
+
+    return render(request, 'autolog/other_expense_list.html', {
+        'vehicle': vehicle,
+        'expenses': expenses,
+        'filter_type': filter_type,
+        'totals_by_type': totals_by_type,
+        'expense_types': OtherExpense.EXPENSE_TYPE_CHOICES,
+    })
+
+
+@login_required
+def other_expense_create(request, vehicle_pk):
+    """Create a new other expense for a vehicle"""
+    vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)
+
+    if request.method == 'POST':
+        form = OtherExpenseForm(request.POST, vehicle=vehicle)
+        if form.is_valid():
+            expense = form.save(commit=False)
+            expense.vehicle = vehicle
+            expense.save()
+
+            log_event(
+                request=request,
+                event="Other expense created",
+                level="INFO",
+                vehicle_id=vehicle.id,
+                expense_id=expense.id,
+                expense_type=expense.expense_type,
+                cost=float(expense.cost)
+            )
+
+            return redirect('other_expense_list', vehicle_pk=vehicle.pk)
+    else:
+        form = OtherExpenseForm(vehicle=vehicle)
+
+    log_event(
+        request=request,
+        event="Other expense create form accessed",
+        level="DEBUG",
+        vehicle_id=vehicle.id
+    )
+
+    return render(request, 'autolog/other_expense_form.html', {
+        'form': form,
+        'vehicle': vehicle,
+        'action': 'Add',
+    })
+
+
+@login_required
+def other_expense_edit(request, pk):
+    """Edit an existing other expense"""
+    expense = get_object_or_404(
+        OtherExpense,
+        pk=pk,
+        vehicle__user=request.user
+    )
+    vehicle = expense.vehicle
+
+    if request.method == 'POST':
+        form = OtherExpenseForm(request.POST, vehicle=vehicle, instance=expense)
+        if form.is_valid():
+            expense = form.save()
+
+            log_event(
+                request=request,
+                event="Other expense updated",
+                level="INFO",
+                vehicle_id=vehicle.id,
+                expense_id=expense.id,
+                expense_type=expense.expense_type
+            )
+
+            return redirect('other_expense_list', vehicle_pk=vehicle.pk)
+    else:
+        form = OtherExpenseForm(vehicle=vehicle, instance=expense)
+
+    log_event(
+        request=request,
+        event="Other expense edit form accessed",
+        level="DEBUG",
+        expense_id=expense.id
+    )
+
+    return render(request, 'autolog/other_expense_form.html', {
+        'form': form,
+        'vehicle': vehicle,
+        'action': 'Edit',
+        'expense': expense,
+    })
+
+
+@login_required
+def other_expense_delete(request, pk):
+    """Delete an other expense"""
+    expense = get_object_or_404(
+        OtherExpense,
+        pk=pk,
+        vehicle__user=request.user
+    )
+    vehicle = expense.vehicle
+
+    if request.method == 'POST':
+        log_event(
+            request=request,
+            event="Other expense deleted",
+            level="INFO",
+            vehicle_id=vehicle.id,
+            expense_id=expense.id,
+            expense_type=expense.expense_type
+        )
+        expense.delete()
+        return redirect('other_expense_list', vehicle_pk=vehicle.pk)
+
+    log_event(
+        request=request,
+        event="Other expense delete confirmation accessed",
+        level="DEBUG",
+        expense_id=expense.id
+    )
+
+    return render(request, 'autolog/other_expense_confirm_delete.html', {
+        'expense': expense,
         'vehicle': vehicle,
     })

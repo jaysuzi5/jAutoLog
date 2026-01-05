@@ -1,5 +1,5 @@
 from django import forms
-from .models import Vehicle, FuelEntry, MaintenanceEntry
+from .models import Vehicle, FuelEntry, MaintenanceEntry, OtherExpense
 
 
 class VehicleForm(forms.ModelForm):
@@ -316,6 +316,33 @@ class MaintenanceEntryForm(forms.ModelForm):
             raise forms.ValidationError('Odometer reading cannot exceed 1,000,000 miles')
 
         return odometer
+
+    def clean_cost(self):
+        cost = self.cleaned_data.get('cost')
+        if cost and cost > 50000:
+            raise forms.ValidationError('Cost cannot exceed $50,000')
+        if cost and cost < 0:
+            raise forms.ValidationError('Cost cannot be negative')
+        return cost
+
+
+class OtherExpenseForm(forms.ModelForm):
+    class Meta:
+        model = OtherExpense
+        fields = ['expense_type', 'date', 'cost', 'notes']
+        widgets = {
+            'expense_type': forms.Select(attrs={'class': 'form-select'}),
+            'date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'cost': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Total cost', 'step': '0.01', 'min': '0'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Optional notes'}),
+        }
+        labels = {
+            'expense_type': 'Expense Type',
+        }
+
+    def __init__(self, *args, vehicle=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.vehicle = vehicle
 
     def clean_cost(self):
         cost = self.cleaned_data.get('cost')

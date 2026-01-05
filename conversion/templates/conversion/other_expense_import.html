@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Import Other Expenses - {{ vehicle }} - jAutoLog{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header mb-4">
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
+            <div>
+                <h1 class="mb-0"><i class="bi bi-upload me-2"></i>Import Other Expenses</h1>
+                <p class="text-muted mb-0">For: {{ vehicle }}</p>
+            </div>
+            <a href="{% url 'other_expense_list' vehicle.pk %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Expenses
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="row mb-3">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-code-square me-2"></i>JSON Data</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="json_data" class="form-label">
+                                Paste your expense history JSON data below (flat format):
+                            </label>
+                            <textarea
+                                name="json_data"
+                                id="json_data"
+                                class="form-control font-monospace"
+                                rows="18"
+                                placeholder='{
+  "insurance": [
+    {
+      "date": "2023-12-04",
+      "cost": 132.0,
+      "notes": "Difference between vehicles"
+    },
+    {
+      "date": "2024-12-07",
+      "cost": 758.0,
+      "notes": "Full year"
+    }
+  ],
+  "registration": [
+    {
+      "date": "2024-05-29",
+      "cost": 45.0,
+      "notes": "registration"
+    },
+    {
+      "date": "2024-05-29",
+      "cost": 54.66,
+      "notes": "inspection"
+    }
+  ]
+}'>{{ json_data }}</textarea>
+                        </div>
+                        <div class="d-flex flex-column-reverse flex-sm-row justify-content-between gap-2">
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                                <i class="bi bi-x-lg me-1"></i>Clear
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-upload me-1"></i>Import Expenses
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mt-4 mt-lg-0">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>JSON Format</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-2">Uses flat format with expense types</p>
+                    <p class="small mb-2"><strong>Required Structure:</strong></p>
+                    <pre class="bg-light p-2 rounded small mb-3"><code>{
+  "insurance": [...],
+  "registration": [...]
+}</code></pre>
+                    <p class="small mb-2"><strong>Entry Fields:</strong></p>
+                    <table class="table table-sm small">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>date</td><td>YYYY-MM-DD</td><td>Yes</td></tr>
+                            <tr><td>cost</td><td>number</td><td>Yes</td></tr>
+                            <tr><td>notes</td><td>text</td><td>No</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-tag me-2"></i>Expense Types</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small mb-0">
+                        <li><span class="badge bg-secondary">insurance</span> - Insurance premiums</li>
+                        <li><span class="badge bg-secondary">registration</span> - Registration, inspection, tags</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                <small>
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>Note:</strong> Expense entries can be added in any order and do not require odometer readings.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function clearForm() {
+    document.getElementById('json_data').value = '';
+}
+</script>
+{% endblock %}
