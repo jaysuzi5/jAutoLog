@@ -40,7 +40,7 @@ body {
 
 /* Cards */
 .card {
-    border: none;
+    border: 1px solid #cbd5e1;
     border-radius: 12px;
     box-shadow: var(--card-shadow);
     transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -52,7 +52,7 @@ body {
 
 .card-header {
     background-color: #fff;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid #cbd5e1;
     font-weight: 600;
 }
 
@@ -92,9 +92,23 @@ body {
 /* Forms */
 .form-control, .form-select {
     border-radius: 8px;
-    border: 1px solid #cbd5e1;
+    border: 1.5px solid #94a3b8;
     padding: 0.625rem 0.875rem;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-check-input {
+    border: 2px solid #1e293b !important;
+    border-radius: 4px;
+    width: 1.25rem;
+    height: 1.25rem;
+    background-color: #ffffff !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.form-check-input:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25) !important;
 }
 
 .form-control:focus, .form-select:focus {
@@ -145,13 +159,26 @@ dl.row dd {
 
 /* Footer */
 .footer {
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid #cbd5e1;
+}
+
+/* Table borders */
+.table {
+    border-color: #cbd5e1;
+}
+
+.table > :not(caption) > * > * {
+    border-bottom-color: #cbd5e1;
+}
+
+.table-light {
+    border-color: #cbd5e1;
 }
 
 /* Form switch */
 .form-check-input:checked {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
 }
 
 /* Alert improvements */
@@ -267,6 +294,6 @@ dl.row dd {
 
     .card {
         box-shadow: none;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #94a3b8;
     }
 }

@@ -27,6 +27,15 @@ class Vehicle(models.Model):
     sold_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     sold_odometer = models.PositiveIntegerField(null=True, blank=True)
     fuel_type = models.CharField(max_length=10, choices=FUEL_CHOICES, default='gasoline')
+
+    # Loan information
+    loan_start_date = models.DateField(null=True, blank=True)
+    loan_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    loan_interest_rate = models.DecimalField(max_digits=5, decimal_places=3, null=True, blank=True, help_text="Annual interest rate as percentage (e.g., 5.75 for 5.75%)")
+    loan_term_months = models.PositiveIntegerField(null=True, blank=True, help_text="Total number of months for the loan")
+    loan_payment_day = models.PositiveIntegerField(null=True, blank=True, help_text="Day of month payment is due (1-31)")
+    loan_auto_payment = models.BooleanField(default=False, help_text="Automatically generate monthly payment entries")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -39,6 +48,82 @@ class Vehicle(models.Model):
     @property
     def is_sold(self):
         return self.sold_date is not None
+
+    def calculate_monthly_payment(self):
+        """Calculate the monthly loan payment using amortization formula"""
+        if not all([self.loan_amount, self.loan_interest_rate, self.loan_term_months]):
+            return None
+
+        principal = float(self.loan_amount)
+        annual_rate = float(self.loan_interest_rate) / 100  # Convert percentage to decimal
+        monthly_rate = annual_rate / 12
+        num_payments = self.loan_term_months
+
+        if monthly_rate == 0:
+            # No interest loan
+            return principal / num_payments
+
+        # Amortization formula: M = P * [r(1+r)^n] / [(1+r)^n - 1]
+        monthly_payment = principal * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
+        return round(monthly_payment, 2)
+
+    def get_loan_payments_made(self):
+        """Get count of loan payments made"""
+        return self.other_expenses.filter(expense_type='loan').count()
+
+    def get_loan_payments_remaining(self):
+        """Calculate remaining loan payments"""
+        if not self.loan_term_months:
+            return None
+        payments_made = self.get_loan_payments_made()
+        return max(0, self.loan_term_months - payments_made)
+
+    def get_total_loan_interest(self):
+        """Calculate expected total interest over life of loan"""
+        monthly_payment = self.calculate_monthly_payment()
+        if not monthly_payment or not self.loan_term_months or not self.loan_amount:
+            return None
+
+        total_paid = monthly_payment * self.loan_term_months
+        total_interest = total_paid - float(self.loan_amount)
+        return round(total_interest, 2)
+
+    def get_interest_paid_to_date(self):
+        """Calculate actual interest paid on loan payments made so far using amortization schedule"""
+        if not all([self.loan_amount, self.loan_interest_rate, self.loan_term_months]):
+            return None
+
+        payments_made = self.get_loan_payments_made()
+        if payments_made == 0:
+            return 0
+
+        monthly_payment = self.calculate_monthly_payment()
+        if not monthly_payment:
+            return None
+
+        principal = float(self.loan_amount)
+        annual_rate = float(self.loan_interest_rate) / 100
+        monthly_rate = annual_rate / 12
+
+        if monthly_rate == 0:
+            # No interest loan
+            return 0
+
+        # Calculate interest paid using amortization schedule
+        remaining_principal = principal
+        total_interest_paid = 0
+
+        for payment_num in range(1, payments_made + 1):
+            # Interest portion of this payment
+            interest_payment = remaining_principal * monthly_rate
+            # Principal portion of this payment
+            principal_payment = monthly_payment - interest_payment
+            # Update remaining principal
+            remaining_principal -= principal_payment
+            # Accumulate interest paid
+            total_interest_paid += interest_payment
+
+        return round(total_interest_paid, 2)
 
 
 class FuelEntry(models.Model):
@@ -153,6 +238,7 @@ class OtherExpense(models.Model):
     EXPENSE_TYPE_CHOICES = [
         ('insurance', 'Insurance'),
         ('registration', 'Registration'),
+        ('loan', 'Loan Payment'),
     ]
 
     # Relationships

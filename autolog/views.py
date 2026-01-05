@@ -3,6 +3,85 @@ from config.logging_utils import log_event
 from django.contrib.auth.decorators import login_required
 from .models import Vehicle, FuelEntry, MaintenanceEntry, OtherExpense
 from .forms import VehicleForm, GasolineFuelForm, ElectricFuelForm, MaintenanceEntryForm, OtherExpenseForm
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
+
+
+def generate_loan_payments(vehicle):
+    """Auto-generate missing loan payment entries if auto-payment is enabled"""
+    if not vehicle.loan_auto_payment or not all([
+        vehicle.loan_start_date,
+        vehicle.loan_payment_day,
+        vehicle.loan_term_months
+    ]):
+        return 0
+
+    monthly_payment = vehicle.calculate_monthly_payment()
+    if not monthly_payment:
+        return 0
+
+    created_count = 0
+    current_date = date.today()
+
+    # Calculate loan end date
+    loan_end_date = vehicle.loan_start_date + relativedelta(months=vehicle.loan_term_months)
+
+    # Don't create payments beyond today or loan end
+    max_date = min(current_date, loan_end_date)
+
+    # Start from loan start date
+    payment_date = vehicle.loan_start_date
+
+    # Adjust to the correct day of month
+    if payment_date.day != vehicle.loan_payment_day:
+        # Move to the payment day in the same month or next month
+        try:
+            payment_date = payment_date.replace(day=vehicle.loan_payment_day)
+        except ValueError:
+            # Day doesn't exist in this month (e.g., 31st in February)
+            # Move to last day of month
+            next_month = payment_date.replace(day=1) + relativedelta(months=1)
+            payment_date = next_month - timedelta(days=1)
+
+    while payment_date <= max_date:
+        # Check if payment already exists for this month
+        month_start = payment_date.replace(day=1)
+        month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
+
+        existing_payment = vehicle.other_expenses.filter(
+            expense_type='loan',
+            date__gte=month_start,
+            date__lte=month_end
+        ).first()
+
+        if not existing_payment:
+            # Create the payment
+            OtherExpense.objects.create(
+                vehicle=vehicle,
+                expense_type='loan',
+                date=payment_date,
+                cost=monthly_payment,
+                notes=f'Auto-generated loan payment'
+            )
+            created_count += 1
+
+        # Move to next month's payment date
+        try:
+            next_month = payment_date + relativedelta(months=1)
+            # Ensure we're on the correct payment day
+            if next_month.day != vehicle.loan_payment_day:
+                try:
+                    payment_date = next_month.replace(day=vehicle.loan_payment_day)
+                except ValueError:
+                    # Day doesn't exist in this month
+                    next_next_month = next_month.replace(day=1) + relativedelta(months=1)
+                    payment_date = next_next_month - timedelta(days=1)
+            else:
+                payment_date = next_month
+        except:
+            break
+
+    return created_count
 
 
 @login_required
@@ -76,6 +155,18 @@ def vehicle_create(request):
 @login_required
 def vehicle_detail(request, pk):
     vehicle = get_object_or_404(Vehicle, pk=pk, user=request.user)
+
+    # Auto-generate loan payments if enabled
+    payments_created = generate_loan_payments(vehicle)
+    if payments_created > 0:
+        log_event(
+            request=request,
+            event="Auto-generated loan payments",
+            level="INFO",
+            vehicle_id=vehicle.id,
+            payments_created=payments_created
+        )
+
     fuel_entries = list(vehicle.fuel_entries.all())
 
     # Calculate distance traveled for each entry
@@ -131,11 +222,23 @@ def vehicle_detail(request, pk):
         vehicle_id=vehicle.id,
         vehicle=str(vehicle)
     )
+    # Loan information
+    loan_info = None
+    if vehicle.loan_start_date:
+        loan_info = {
+            'monthly_payment': vehicle.calculate_monthly_payment(),
+            'payments_made': vehicle.get_loan_payments_made(),
+            'payments_remaining': vehicle.get_loan_payments_remaining(),
+            'total_interest': vehicle.get_total_loan_interest(),
+            'interest_paid_to_date': vehicle.get_interest_paid_to_date(),
+        }
+
     return render(request, "autolog/vehicle_detail.html", {
         'vehicle': vehicle,
         'fuel_entries': fuel_entries,
         'chart_data': chart_data,
         'chart_data_json': chart_data_json,
+        'loan_info': loan_info,
     })
 
 

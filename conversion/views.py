@@ -623,7 +623,7 @@ def other_expense_import(request, vehicle_pk):
         errors = []
 
         # Valid expense types
-        valid_types = ['insurance', 'registration']
+        valid_types = ['insurance', 'registration', 'loan']
 
         # Process each expense type
         for expense_type, entries in data.items():

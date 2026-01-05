@@ -147,6 +147,80 @@
         </div>
     </div>
 
+    <!-- Loan Information -->
+    {% if loan_info %}
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-warning bg-opacity-10">
+                    <h5 class="mb-0"><i class="bi bi-cash-coin me-2"></i>Loan Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 col-lg-3 mb-3 mb-lg-0">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-1">Loan Amount</small>
+                                <h4 class="mb-0">${{ vehicle.loan_amount|floatformat:2|intcomma }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-3 mb-lg-0">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-1">Interest Rate</small>
+                                <h4 class="mb-0">{{ vehicle.loan_interest_rate }}%</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-3 mb-lg-0">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-1">Monthly Payment</small>
+                                <h4 class="mb-0">${{ loan_info.monthly_payment|floatformat:2|intcomma }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-1">Term</small>
+                                <h4 class="mb-0">{{ vehicle.loan_term_months }} months</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <hr class="my-3">
+                    <div class="row">
+                        <div class="col-md-3 mb-2 mb-md-0">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted">Payments Made:</span>
+                                <strong>{{ loan_info.payments_made }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-2 mb-md-0">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted">Payments Remaining:</span>
+                                <strong>{{ loan_info.payments_remaining }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-2 mb-md-0">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted">Interest Paid to Date:</span>
+                                <strong class="text-success">${{ loan_info.interest_paid_to_date|floatformat:2|intcomma }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted">Total Interest:</span>
+                                <strong class="text-danger">${{ loan_info.total_interest|floatformat:2|intcomma }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    {% if vehicle.loan_auto_payment %}
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <small>Auto-payment enabled - Payment entries are automatically generated on day {{ vehicle.loan_payment_day }} of each month.</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- MPG Control Chart -->
     {% if chart_data %}
     <div class="row mt-4">

@@ -71,6 +71,13 @@
       "cost": 54.66,
       "notes": "inspection"
     }
+  ],
+  "loan": [
+    {
+      "date": "2024-01-15",
+      "cost": 350.0,
+      "notes": "Monthly payment"
+    }
   ]
 }'>{{ json_data }}</textarea>
                         </div>
@@ -97,7 +104,8 @@
                     <p class="small mb-2"><strong>Required Structure:</strong></p>
                     <pre class="bg-light p-2 rounded small mb-3"><code>{
   "insurance": [...],
-  "registration": [...]
+  "registration": [...],
+  "loan": [...]
 }</code></pre>
                     <p class="small mb-2"><strong>Entry Fields:</strong></p>
                     <table class="table table-sm small">
@@ -125,6 +133,7 @@
                     <ul class="list-unstyled small mb-0">
                         <li><span class="badge bg-secondary">insurance</span> - Insurance premiums</li>
                         <li><span class="badge bg-secondary">registration</span> - Registration, inspection, tags</li>
+                        <li><span class="badge bg-secondary">loan</span> - Loan payments</li>
                     </ul>
                 </div>
             </div>

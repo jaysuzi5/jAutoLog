@@ -45,7 +45,7 @@
 
     <!-- Summary Cards -->
     <div class="row mb-4">
-        <div class="col-md-6 mb-3">
+        <div class="col-md-6 col-lg-4 mb-3">
             <div class="card">
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Insurance</h6>
@@ -54,12 +54,21 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6 mb-3">
+        <div class="col-md-6 col-lg-4 mb-3">
             <div class="card">
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Registration</h6>
                     <h3 class="card-title mb-0">${{ totals_by_type.registration.total|floatformat:2|intcomma }}</h3>
                     <small class="text-muted">{{ totals_by_type.registration.count }} entries</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Loan Payment</h6>
+                    <h3 class="card-title mb-0">${{ totals_by_type.loan.total|floatformat:2|intcomma }}</h3>
+                    <small class="text-muted">{{ totals_by_type.loan.count }} entries</small>
                 </div>
             </div>
         </div>
