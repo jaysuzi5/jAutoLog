@@ -510,6 +510,68 @@ def vehicle_edit(request, pk):
 
 
 @login_required
+def fuel_entry_list(request, vehicle_pk):
+    """Display fuel entries with MPG chart for a vehicle"""
+    vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)
+
+    fuel_entries = list(vehicle.fuel_entries.all())
+
+    # Calculate distance traveled for each entry
+    for i, entry in enumerate(fuel_entries):
+        if i < len(fuel_entries) - 1:
+            prev_entry = fuel_entries[i + 1]
+            entry.distance_traveled = entry.odometer - prev_entry.odometer
+        elif vehicle.purchased_odometer:
+            entry.distance_traveled = entry.odometer - vehicle.purchased_odometer
+        else:
+            entry.distance_traveled = entry.odometer
+
+    # Calculate control chart statistics
+    chart_data = None
+    chart_data_json = None
+    if fuel_entries:
+        chart_entries = list(reversed(fuel_entries[-50:]))
+        is_electric = vehicle.fuel_type == 'electric'
+
+        if is_electric:
+            efficiency_values = [float(entry.mpge) for entry in chart_entries if entry.mpge]
+            metric_label = 'MPGe'
+        else:
+            efficiency_values = [float(entry.mpg) for entry in chart_entries if entry.mpg]
+            metric_label = 'MPG'
+
+        if efficiency_values:
+            import statistics
+            import json
+            avg = statistics.mean(efficiency_values)
+            std = statistics.stdev(efficiency_values) if len(efficiency_values) > 1 else 0
+
+            chart_data = {
+                'dates': [entry.date.strftime('%Y-%m-%d') for entry in chart_entries if (entry.mpge if is_electric else entry.mpg)],
+                'efficiency_values': efficiency_values,
+                'avg': round(avg, 1),
+                'std_plus_3': round(avg + (3 * std), 1),
+                'std_minus_3': round(avg - (3 * std), 1),
+                'metric_label': metric_label,
+            }
+            chart_data_json = json.dumps(chart_data)
+
+    log_event(
+        request=request,
+        event="Fuel entry list viewed",
+        level="DEBUG",
+        vehicle_id=vehicle.id
+    )
+
+    return render(request, "autolog/fuel_entry_list.html", {
+        'vehicle': vehicle,
+        'fuel_entries': fuel_entries,
+        'chart_data': chart_data,
+        'chart_data_json': chart_data_json,
+    })
+
+
+@login_required
 def fuel_entry_create(request, vehicle_pk):
     """Create a new fuel entry for a vehicle"""
     vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)

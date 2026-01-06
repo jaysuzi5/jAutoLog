@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     home, vehicle_list, vehicle_comparison, vehicle_create, vehicle_detail, vehicle_edit,
-    fuel_entry_create, fuel_entry_detail, fuel_entry_edit, fuel_entry_delete,
+    fuel_entry_list, fuel_entry_create, fuel_entry_detail, fuel_entry_edit, fuel_entry_delete,
     maintenance_entry_list, maintenance_entry_create, maintenance_entry_edit, maintenance_entry_delete,
     other_expense_list, other_expense_create, other_expense_edit, other_expense_delete,
     vehicle_images, vehicle_image_delete, vehicle_image_set_primary, vehicle_image_update_caption
@@ -16,6 +16,7 @@ urlpatterns = [
     path("vehicles/<int:pk>/edit/", vehicle_edit, name="vehicle_edit"),
 
     # Fuel entry URLs
+    path("vehicles/<int:vehicle_pk>/fuel/", fuel_entry_list, name="fuel_entry_list"),
     path("vehicles/<int:vehicle_pk>/fuel/add/", fuel_entry_create, name="fuel_entry_create"),
     path("fuel/<int:pk>/", fuel_entry_detail, name="fuel_entry_detail"),
     path("fuel/<int:pk>/edit/", fuel_entry_edit, name="fuel_entry_edit"),
