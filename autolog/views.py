@@ -1,8 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.conf import settings
+from django.contrib import messages
 from config.logging_utils import log_event
 from django.contrib.auth.decorators import login_required
-from .models import Vehicle, FuelEntry, MaintenanceEntry, OtherExpense
-from .forms import VehicleForm, GasolineFuelForm, ElectricFuelForm, MaintenanceEntryForm, OtherExpenseForm
+from .models import Vehicle, FuelEntry, MaintenanceEntry, OtherExpense, VehicleImage
+from .forms import VehicleForm, GasolineFuelForm, ElectricFuelForm, MaintenanceEntryForm, OtherExpenseForm, MultipleImageUploadForm
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 
@@ -1014,3 +1016,152 @@ def other_expense_delete(request, pk):
         'expense': expense,
         'vehicle': vehicle,
     })
+
+# Vehicle Image Views
+@login_required
+def vehicle_images(request, vehicle_pk):
+    """View and manage images for a vehicle"""
+    vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)
+    images = vehicle.images.all()
+    
+    # Handle image upload
+    if request.method == 'POST':
+        try:
+            files = request.FILES.getlist('images')
+
+            if not files:
+                messages.error(request, 'Please select at least one image to upload.')
+            else:
+                # Check total image count
+                current_count = images.count()
+                max_images = settings.MAX_VEHICLE_IMAGES
+
+                if current_count + len(files) > max_images:
+                    messages.error(request, f'Cannot upload {len(files)} images. Maximum {max_images} images per vehicle. You currently have {current_count} images.')
+                else:
+                    uploaded_count = 0
+                    for f in files:
+                        VehicleImage.objects.create(
+                            vehicle=vehicle,
+                            image=f
+                        )
+                        uploaded_count += 1
+
+                    messages.success(request, f'Successfully uploaded {uploaded_count} image(s).')
+
+                    log_event(
+                        request=request,
+                        event="Vehicle images uploaded",
+                        level="INFO",
+                        vehicle_id=vehicle.id,
+                        count=uploaded_count
+                    )
+
+                    return redirect('vehicle_images', vehicle_pk=vehicle.pk)
+        except Exception as e:
+            messages.error(request, f'Error uploading images: {str(e)}')
+            log_event(
+                request=request,
+                event="Vehicle image upload failed",
+                level="ERROR",
+                vehicle_id=vehicle.id,
+                error=str(e)
+            )
+
+        form = MultipleImageUploadForm()
+    else:
+        form = MultipleImageUploadForm()
+    
+    log_event(
+        request=request,
+        event="Vehicle images viewed",
+        level="DEBUG",
+        vehicle_id=vehicle.id,
+        image_count=images.count()
+    )
+    
+    return render(request, "autolog/vehicle_images.html", {
+        'vehicle': vehicle,
+        'images': images,
+        'form': form,
+        'max_images': settings.MAX_VEHICLE_IMAGES,
+        'current_count': images.count(),
+    })
+
+
+@login_required
+def vehicle_image_delete(request, pk):
+    """Delete a vehicle image"""
+    image = get_object_or_404(VehicleImage, pk=pk, vehicle__user=request.user)
+    vehicle = image.vehicle
+    
+    if request.method == 'POST':
+        image.delete()
+        messages.success(request, 'Image deleted successfully.')
+        
+        log_event(
+            request=request,
+            event="Vehicle image deleted",
+            level="INFO",
+            vehicle_id=vehicle.id,
+            image_id=pk
+        )
+        
+        return redirect('vehicle_images', vehicle_pk=vehicle.pk)
+    
+    return render(request, "autolog/vehicle_image_confirm_delete.html", {
+        'image': image,
+        'vehicle': vehicle,
+    })
+
+
+@login_required
+def vehicle_image_set_primary(request, pk):
+    """Set an image as the primary image"""
+    image = get_object_or_404(VehicleImage, pk=pk, vehicle__user=request.user)
+    vehicle = image.vehicle
+    
+    # Unset all other primary images for this vehicle
+    vehicle.images.update(is_primary=False)
+    
+    # Set this image as primary
+    image.is_primary = True
+    image.save()
+    
+    messages.success(request, 'Primary image updated.')
+    
+    log_event(
+        request=request,
+        event="Primary vehicle image set",
+        level="INFO",
+        vehicle_id=vehicle.id,
+        image_id=pk
+    )
+    
+    return redirect('vehicle_images', vehicle_pk=vehicle.pk)
+
+
+@login_required
+def vehicle_image_update_caption(request, pk):
+    """Update image caption"""
+    image = get_object_or_404(VehicleImage, pk=pk, vehicle__user=request.user)
+    vehicle = image.vehicle
+    
+    if request.method == 'POST':
+        caption = request.POST.get('caption', '').strip()
+        image.caption = caption
+        image.save()
+        
+        messages.success(request, 'Caption updated.')
+        
+        log_event(
+            request=request,
+            event="Vehicle image caption updated",
+            level="DEBUG",
+            vehicle_id=vehicle.id,
+            image_id=pk
+        )
+        
+        return redirect('vehicle_images', vehicle_pk=vehicle.pk)
+    
+    return redirect('vehicle_images', vehicle_pk=vehicle.pk)

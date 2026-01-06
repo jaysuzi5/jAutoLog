@@ -1,5 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
+from PIL import Image
+import os
 
 
 class Vehicle(models.Model):
@@ -266,3 +269,54 @@ class OtherExpense(models.Model):
 
     def __str__(self):
         return f"{self.vehicle} - {self.get_expense_type_display()} - {self.date}"
+
+
+class VehicleImage(models.Model):
+    """Model for storing vehicle images with automatic resizing"""
+    vehicle = models.ForeignKey(
+        Vehicle,
+        on_delete=models.CASCADE,
+        related_name='images'
+    )
+    image = models.ImageField(upload_to='vehicles/')
+    caption = models.CharField(max_length=200, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_primary = models.BooleanField(default=False, help_text="Primary image shown first")
+
+    class Meta:
+        ordering = ['-is_primary', '-uploaded_at']
+
+    def __str__(self):
+        return f"{self.vehicle} - Image {self.id}"
+
+    def save(self, *args, **kwargs):
+        """Override save to resize image if needed"""
+        super().save(*args, **kwargs)
+
+        if self.image:
+            img_path = self.image.path
+            img = Image.open(img_path)
+
+            # Get max resolution from settings
+            max_size = settings.MAX_IMAGE_RESOLUTION
+
+            # Check if image needs resizing
+            if img.width > max_size or img.height > max_size:
+                # Calculate new dimensions maintaining aspect ratio
+                if img.width > img.height:
+                    new_width = max_size
+                    new_height = int((max_size / img.width) * img.height)
+                else:
+                    new_height = max_size
+                    new_width = int((max_size / img.height) * img.width)
+
+                # Resize and save
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                img.save(img_path, optimize=True, quality=85)
+
+    def delete(self, *args, **kwargs):
+        """Override delete to remove image file"""
+        if self.image:
+            if os.path.isfile(self.image.path):
+                os.remove(self.image.path)
+        super().delete(*args, **kwargs)

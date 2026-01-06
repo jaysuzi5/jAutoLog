@@ -3,7 +3,8 @@ from .views import (
     home, vehicle_list, vehicle_comparison, vehicle_create, vehicle_detail, vehicle_edit,
     fuel_entry_create, fuel_entry_detail, fuel_entry_edit, fuel_entry_delete,
     maintenance_entry_list, maintenance_entry_create, maintenance_entry_edit, maintenance_entry_delete,
-    other_expense_list, other_expense_create, other_expense_edit, other_expense_delete
+    other_expense_list, other_expense_create, other_expense_edit, other_expense_delete,
+    vehicle_images, vehicle_image_delete, vehicle_image_set_primary, vehicle_image_update_caption
 )
 
 urlpatterns = [
@@ -31,4 +32,10 @@ urlpatterns = [
     path("vehicles/<int:vehicle_pk>/expenses/add/", other_expense_create, name="other_expense_create"),
     path("expenses/<int:pk>/edit/", other_expense_edit, name="other_expense_edit"),
     path("expenses/<int:pk>/delete/", other_expense_delete, name="other_expense_delete"),
+
+    # Vehicle image URLs
+    path("vehicles/<int:vehicle_pk>/images/", vehicle_images, name="vehicle_images"),
+    path("images/<int:pk>/delete/", vehicle_image_delete, name="vehicle_image_delete"),
+    path("images/<int:pk>/set-primary/", vehicle_image_set_primary, name="vehicle_image_set_primary"),
+    path("images/<int:pk>/update-caption/", vehicle_image_update_caption, name="vehicle_image_update_caption"),
 ]

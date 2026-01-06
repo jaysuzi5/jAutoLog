@@ -1,5 +1,5 @@
 from django import forms
-from .models import Vehicle, FuelEntry, MaintenanceEntry, OtherExpense
+from .models import Vehicle, FuelEntry, MaintenanceEntry, OtherExpense, VehicleImage
 
 
 class VehicleForm(forms.ModelForm):
@@ -361,3 +361,26 @@ class OtherExpenseForm(forms.ModelForm):
         if cost and cost < 0:
             raise forms.ValidationError('Cost cannot be negative')
         return cost
+
+
+class VehicleImageForm(forms.ModelForm):
+    class Meta:
+        model = VehicleImage
+        fields = ['image', 'caption', 'is_primary']
+        widgets = {
+            'image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'caption': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Optional caption'}),
+            'is_primary': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class MultipleImageUploadForm(forms.Form):
+    """Form for uploading multiple images at once"""
+    images = forms.FileField(
+        widget=forms.FileInput(attrs={
+            'accept': 'image/*',
+            'class': 'form-control'
+        }),
+        help_text='Select one or more images to upload (max 20 per vehicle)',
+        required=True
+    )

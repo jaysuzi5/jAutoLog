@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Images - {{ vehicle }} - jAutoLog{% endblock %}
+
+{% block content %}
+<style>
+.image-thumbnail:hover .zoom-icon {
+    opacity: 0.9 !important;
+}
+.image-thumbnail:hover::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+}
+</style>
+<div class="container mt-4">
+    <div class="page-header mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+            <div>
+                <h1 class="mb-1">
+                    <i class="bi bi-images me-2"></i>Vehicle Images
+                </h1>
+                <p class="text-muted mb-0">{{ vehicle }}</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'vehicle_detail' vehicle.pk %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Vehicle
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary bg-opacity-10">
+                    <h5 class="mb-0"><i class="bi bi-upload me-2"></i>Upload Images</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <input type="file" name="images" accept="image/*" multiple class="form-control" id="id_images">
+                            <div class="form-text">{{ form.images.help_text }}</div>
+                            <div class="form-text mt-2">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Current: {{ current_count }} / {{ max_images }} images
+                                {% if current_count < max_images %}
+                                    ({{ max_images|add:"-"|add:current_count }} remaining)
+                                {% endif %}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" {% if current_count >= max_images %}disabled{% endif %}>
+                            <i class="bi bi-upload me-1"></i>Upload Images
+                        </button>
+                        {% if current_count >= max_images %}
+                        <p class="text-danger mt-2 mb-0">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Maximum image limit reached. Delete some images to upload more.
+                        </p>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Gallery -->
+    {% if images %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-collection me-2"></i>Image Gallery ({{ images.count }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        {% for image in images %}
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                            <div class="card h-100">
+                                <div class="position-relative image-thumbnail" style="cursor: pointer;" onclick="openImageViewer({{ forloop.counter0 }})">
+                                    <img src="{{ image.image.url }}" class="card-img-top" alt="{{ image.caption|default:'Vehicle image' }}" style="height: 200px; object-fit: cover;">
+                                    {% if image.is_primary %}
+                                    <span class="position-absolute top-0 end-0 m-2 badge bg-primary" style="z-index: 2;">
+                                        <i class="bi bi-star-fill me-1"></i>Primary
+                                    </span>
+                                    {% endif %}
+                                    <div class="position-absolute top-50 start-50 translate-middle" style="z-index: 1;">
+                                        <i class="bi bi-zoom-in text-white zoom-icon" style="font-size: 2rem; opacity: 0; transition: opacity 0.2s;"></i>
+                                    </div>
+                                </div>
+                                <div class="card-body p-2">
+                                    <form method="post" action="{% url 'vehicle_image_update_caption' image.pk %}" class="mb-2">
+                                        {% csrf_token %}
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" name="caption" class="form-control form-control-sm"
+                                                   placeholder="Add caption..." value="{{ image.caption }}" maxlength="200">
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                                <i class="bi bi-check"></i>
+                                            </button>
+                                        </div>
+                                    </form>
+                                    <div class="d-flex gap-1">
+                                        {% if not image.is_primary %}
+                                        <a href="{% url 'vehicle_image_set_primary' image.pk %}"
+                                           class="btn btn-sm btn-outline-primary flex-fill"
+                                           title="Set as primary">
+                                            <i class="bi bi-star"></i>
+                                        </a>
+                                        {% endif %}
+                                        <button type="button"
+                                           class="btn btn-sm btn-outline-info flex-fill"
+                                           onclick="openImageViewer({{ forloop.counter0 }})"
+                                           title="View full size">
+                                            <i class="bi bi-zoom-in"></i>
+                                        </button>
+                                        <a href="{% url 'vehicle_image_delete' image.pk %}"
+                                           class="btn btn-sm btn-outline-danger flex-fill"
+                                           title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                    <small class="text-muted d-block mt-2">
+                                        <i class="bi bi-calendar me-1"></i>{{ image.uploaded_at|date:"M d, Y" }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                No images uploaded yet. Use the form above to upload your first image.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Image Viewer Modal -->
+<div class="modal fade" id="imageViewerModal" tabindex="-1" aria-labelledby="imageViewerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-white" id="imageViewerModalLabel">Image Viewer</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body position-relative p-0">
+                <div class="d-flex align-items-center justify-content-center" style="min-height: 60vh;">
+                    <img id="viewerImage" src="" alt="" class="img-fluid" style="max-height: 80vh; max-width: 100%;">
+                </div>
+                <div id="viewerCaption" class="text-white text-center p-3 bg-dark bg-opacity-75"></div>
+
+                <!-- Navigation Buttons -->
+                <button type="button" class="btn btn-light position-absolute top-50 start-0 translate-middle-y ms-3"
+                        onclick="previousImage()" id="prevBtn" style="opacity: 0.8;">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button type="button" class="btn btn-light position-absolute top-50 end-0 translate-middle-y me-3"
+                        onclick="nextImage()" id="nextBtn" style="opacity: 0.8;">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+            <div class="modal-footer border-secondary">
+                <span id="imageCounter" class="text-white me-auto"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Image data for viewer
+const images = [
+    {% for image in images %}
+    {
+        url: "{{ image.image.url }}",
+        caption: "{{ image.caption|escapejs }}",
+        uploadedAt: "{{ image.uploaded_at|date:'M d, Y' }}",
+        isPrimary: {% if image.is_primary %}true{% else %}false{% endif %}
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+let currentImageIndex = 0;
+
+function openImageViewer(index) {
+    currentImageIndex = index;
+    showImage();
+    const modal = new bootstrap.Modal(document.getElementById('imageViewerModal'));
+    modal.show();
+}
+
+function showImage() {
+    if (images.length === 0) return;
+
+    const image = images[currentImageIndex];
+    document.getElementById('viewerImage').src = image.url;
+    document.getElementById('viewerImage').alt = image.caption || 'Vehicle image';
+
+    let captionHtml = '';
+    if (image.isPrimary) {
+        captionHtml += '<span class="badge bg-primary me-2"><i class="bi bi-star-fill me-1"></i>Primary</span>';
+    }
+    if (image.caption) {
+        captionHtml += '<strong>' + image.caption + '</strong> - ';
+    }
+    captionHtml += image.uploadedAt;
+
+    document.getElementById('viewerCaption').innerHTML = captionHtml;
+    document.getElementById('imageCounter').textContent = `Image ${currentImageIndex + 1} of ${images.length}`;
+
+    // Enable/disable navigation buttons
+    document.getElementById('prevBtn').disabled = (currentImageIndex === 0);
+    document.getElementById('nextBtn').disabled = (currentImageIndex === images.length - 1);
+}
+
+function previousImage() {
+    if (currentImageIndex > 0) {
+        currentImageIndex--;
+        showImage();
+    }
+}
+
+function nextImage() {
+    if (currentImageIndex < images.length - 1) {
+        currentImageIndex++;
+        showImage();
+    }
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('imageViewerModal');
+    if (modal.classList.contains('show')) {
+        if (e.key === 'ArrowLeft') {
+            previousImage();
+        } else if (e.key === 'ArrowRight') {
+            nextImage();
+        } else if (e.key === 'Escape') {
+            bootstrap.Modal.getInstance(modal).hide();
+        }
+    }
+});
+</script>
+{% endblock %}

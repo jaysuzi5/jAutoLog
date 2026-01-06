@@ -25,7 +25,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = 'django-insecure-8ea$dco!7e-1j6e@f5b09hus=ak@l!taj5z1jq(sl(mxm%me0h'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True  # Temporarily enabled for debugging
 
 ALLOWED_HOSTS = ['*']
 
@@ -130,8 +130,20 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
-STATIC_ROOT = BASE_DIR / 'staticfiles' 
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Media files (User uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# File upload settings
+DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB (for multiple large images)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB
+
+# Vehicle Image Settings
+MAX_VEHICLE_IMAGES = 20  # Maximum number of images per vehicle
+MAX_IMAGE_RESOLUTION = 1920  # Maximum width/height in pixels
 
 SITE_ID = 1
 
@@ -168,6 +180,8 @@ LOGIN_URL = '/accounts/login/'
 
 CSRF_TRUSTED_ORIGINS = [
     "https://jautolog.jaycurtis.org",
+    "http://localhost:8006",
+    "http://127.0.0.1:8006",
 ]
 
 if os.getenv("DJANGO_ENV") == "production":
