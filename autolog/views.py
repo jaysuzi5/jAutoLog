@@ -123,6 +123,143 @@ def vehicle_list(request):
 
 
 @login_required
+def vehicle_comparison(request):
+    """Compare statistics across all vehicles"""
+    from django.db.models import Sum, Avg
+
+    vehicles = Vehicle.objects.filter(user=request.user)
+
+    # Get sorting parameters
+    sort_by = request.GET.get('sort', 'name')
+    sort_dir = request.GET.get('dir', 'desc')  # 'asc' or 'desc'
+
+    # Calculate statistics for each vehicle
+    vehicle_stats_list = []
+
+    for vehicle in vehicles:
+        # Skip vehicles without purchase date
+        if not vehicle.purchased_date:
+            continue
+
+        # Calculate days owned
+        end_date = vehicle.sold_date if vehicle.is_sold else date.today()
+        days_owned = (end_date - vehicle.purchased_date).days
+        if days_owned == 0:
+            days_owned = 1
+
+        # Calculate miles driven
+        miles_driven = 0
+        if vehicle.is_sold and vehicle.sold_odometer and vehicle.purchased_odometer:
+            miles_driven = vehicle.sold_odometer - vehicle.purchased_odometer
+        elif not vehicle.is_sold and vehicle.purchased_odometer:
+            latest_fuel = vehicle.fuel_entries.order_by('-odometer').first()
+            latest_maintenance = vehicle.maintenance_entries.order_by('-odometer').first()
+
+            latest_odometer = vehicle.purchased_odometer
+            if latest_fuel and latest_fuel.odometer > latest_odometer:
+                latest_odometer = latest_fuel.odometer
+            if latest_maintenance and latest_maintenance.odometer > latest_odometer:
+                latest_odometer = latest_maintenance.odometer
+
+            miles_driven = latest_odometer - vehicle.purchased_odometer
+
+        # Calculate costs
+        total_fuel = vehicle.fuel_entries.aggregate(total=Sum('cost'))['total'] or 0
+        total_maintenance = vehicle.maintenance_entries.aggregate(total=Sum('cost'))['total'] or 0
+        total_insurance = vehicle.other_expenses.filter(expense_type='insurance').aggregate(total=Sum('cost'))['total'] or 0
+        total_registration = vehicle.other_expenses.filter(expense_type='registration').aggregate(total=Sum('cost'))['total'] or 0
+
+        # Vehicle cost calculation
+        if vehicle.purchased_price:
+            if vehicle.is_sold and vehicle.sold_price:
+                cost = float(vehicle.purchased_price) - float(vehicle.sold_price)
+            elif not vehicle.is_sold and vehicle.current_value:
+                cost = float(vehicle.purchased_price) - float(vehicle.current_value)
+            else:
+                cost = float(vehicle.purchased_price)
+        else:
+            cost = 0
+
+        interest_paid = vehicle.get_interest_paid_to_date() or 0
+        vehicle_cost = cost + float(interest_paid)
+
+        total_cost = vehicle_cost + float(total_fuel) + float(total_maintenance) + float(total_insurance) + float(total_registration)
+
+        # Per-day and per-mile calculations
+        total_cost_per_day = total_cost / days_owned if days_owned > 0 else 0
+        vehicle_cost_per_day = vehicle_cost / days_owned if days_owned > 0 else 0
+        cost_per_mile = total_cost / miles_driven if miles_driven > 0 else 0
+
+        # Average MPG
+        avg_mpg = vehicle.fuel_entries.aggregate(avg=Avg('mpg'))['avg'] or 0
+
+        vehicle_stats_list.append({
+            'vehicle': vehicle,
+            'days_owned': days_owned,
+            'miles_driven': miles_driven,
+            'vehicle_cost': round(vehicle_cost, 2),
+            'total_fuel': round(float(total_fuel), 2),
+            'total_maintenance': round(float(total_maintenance), 2),
+            'total_insurance': round(float(total_insurance), 2),
+            'total_registration': round(float(total_registration), 2),
+            'total_cost': round(total_cost, 2),
+            'total_cost_per_day': round(total_cost_per_day, 2),
+            'vehicle_cost_per_day': round(vehicle_cost_per_day, 2),
+            'cost_per_mile': round(cost_per_mile, 2),
+            'avg_mpg': round(float(avg_mpg), 2) if avg_mpg else 0,
+        })
+
+    # Sort the list
+    sort_key_map = {
+        'name': lambda x: str(x['vehicle']),
+        'days_owned': lambda x: x['days_owned'],
+        'miles_driven': lambda x: x['miles_driven'],
+        'total_cost': lambda x: x['total_cost'],
+        'total_cost_per_day': lambda x: x['total_cost_per_day'],
+        'vehicle_cost_per_day': lambda x: x['vehicle_cost_per_day'],
+        'cost_per_mile': lambda x: x['cost_per_mile'],
+        'avg_mpg': lambda x: x['avg_mpg'],
+        'vehicle_cost': lambda x: x['vehicle_cost'],
+        'total_fuel': lambda x: x['total_fuel'],
+        'total_maintenance': lambda x: x['total_maintenance'],
+    }
+
+    if sort_by in sort_key_map:
+        reverse_sort = (sort_dir == 'desc')
+        vehicle_stats_list.sort(key=sort_key_map[sort_by], reverse=reverse_sort)
+
+    # Calculate min/max for highlighting
+    if vehicle_stats_list:
+        stats_keys = ['days_owned', 'miles_driven', 'total_cost', 'total_cost_per_day',
+                      'vehicle_cost_per_day', 'cost_per_mile', 'avg_mpg', 'vehicle_cost',
+                      'total_fuel', 'total_maintenance']
+
+        min_max = {}
+        for key in stats_keys:
+            values = [v[key] for v in vehicle_stats_list if v[key] > 0]
+            if values:
+                min_max[f'{key}_min'] = min(values)
+                min_max[f'{key}_max'] = max(values)
+    else:
+        min_max = {}
+
+    log_event(
+        request=request,
+        event="Vehicle comparison viewed",
+        level="DEBUG",
+        vehicle_count=len(vehicle_stats_list),
+        sort_by=sort_by
+    )
+
+    return render(request, "autolog/vehicle_comparison.html", {
+        'vehicle_stats_list': vehicle_stats_list,
+        'sort_by': sort_by,
+        'sort_dir': sort_dir,
+        'min_max': min_max,
+    })
+
+
+@login_required
 def vehicle_create(request):
     if request.method == 'POST':
         form = VehicleForm(request.POST)
@@ -222,6 +359,100 @@ def vehicle_detail(request, pk):
         vehicle_id=vehicle.id,
         vehicle=str(vehicle)
     )
+    # Calculate cost and cost with interest
+    cost_info = None
+    if vehicle.purchased_price:
+        if vehicle.is_sold and vehicle.sold_price:
+            # For sold vehicles: cost = purchase price - sold price
+            cost = float(vehicle.purchased_price) - float(vehicle.sold_price)
+        elif not vehicle.is_sold and vehicle.current_value:
+            # For unsold vehicles: cost = purchase price - current value
+            cost = float(vehicle.purchased_price) - float(vehicle.current_value)
+        else:
+            cost = None
+
+        if cost is not None:
+            # Calculate cost with interest
+            interest_paid = vehicle.get_interest_paid_to_date() or 0
+            cost_with_interest = cost + float(interest_paid)
+
+            cost_info = {
+                'cost': round(cost, 2),
+                'cost_with_interest': round(cost_with_interest, 2),
+                'interest_paid': interest_paid,
+            }
+
+    # Calculate comprehensive vehicle statistics
+    from django.db.models import Sum, Avg
+    from datetime import date
+
+    vehicle_stats = None
+    if vehicle.purchased_date:
+        # Calculate days owned
+        end_date = vehicle.sold_date if vehicle.is_sold else date.today()
+        days_owned = (end_date - vehicle.purchased_date).days
+        if days_owned == 0:
+            days_owned = 1  # Prevent division by zero
+
+        # Calculate miles driven
+        miles_driven = 0
+        if vehicle.is_sold and vehicle.sold_odometer and vehicle.purchased_odometer:
+            miles_driven = vehicle.sold_odometer - vehicle.purchased_odometer
+        elif not vehicle.is_sold and vehicle.purchased_odometer:
+            # Get latest odometer reading from fuel or maintenance entries
+            latest_fuel = vehicle.fuel_entries.order_by('-odometer').first()
+            latest_maintenance = vehicle.maintenance_entries.order_by('-odometer').first()
+
+            latest_odometer = vehicle.purchased_odometer
+            if latest_fuel and latest_fuel.odometer > latest_odometer:
+                latest_odometer = latest_fuel.odometer
+            if latest_maintenance and latest_maintenance.odometer > latest_odometer:
+                latest_odometer = latest_maintenance.odometer
+
+            miles_driven = latest_odometer - vehicle.purchased_odometer
+
+        # Calculate total costs by category
+        total_fuel = vehicle.fuel_entries.aggregate(total=Sum('cost'))['total'] or 0
+        total_maintenance = vehicle.maintenance_entries.aggregate(total=Sum('cost'))['total'] or 0
+        total_insurance = vehicle.other_expenses.filter(expense_type='insurance').aggregate(total=Sum('cost'))['total'] or 0
+        total_registration = vehicle.other_expenses.filter(expense_type='registration').aggregate(total=Sum('cost'))['total'] or 0
+
+        # Maintenance breakdown by category
+        maintenance_breakdown = {}
+        for category_code, category_name in vehicle.maintenance_entries.model.CATEGORY_CHOICES:
+            total = vehicle.maintenance_entries.filter(category=category_code).aggregate(total=Sum('cost'))['total'] or 0
+            maintenance_breakdown[category_code] = total
+
+        # Vehicle cost (depreciation + interest)
+        vehicle_cost = (cost_info['cost_with_interest'] if cost_info else 0)
+
+        # Total cost (all expenses)
+        total_cost = vehicle_cost + float(total_fuel) + float(total_maintenance) + float(total_insurance) + float(total_registration)
+
+        # Cost per day calculations
+        total_cost_per_day = total_cost / days_owned if days_owned > 0 else 0
+        vehicle_cost_per_day = vehicle_cost / days_owned if days_owned > 0 else 0
+        cost_per_mile = total_cost / miles_driven if miles_driven > 0 else 0
+
+        # Average MPG
+        avg_mpg = vehicle.fuel_entries.aggregate(avg=Avg('mpg'))['avg'] or 0
+
+        vehicle_stats = {
+            'days_owned': days_owned,
+            'miles_driven': miles_driven,
+            'vehicle_cost': round(vehicle_cost, 2),
+            'total_fuel': round(float(total_fuel), 2),
+            'total_maintenance': round(float(total_maintenance), 2),
+            'total_insurance': round(float(total_insurance), 2),
+            'total_registration': round(float(total_registration), 2),
+            'total_cost': round(total_cost, 2),
+            'total_cost_per_day': round(total_cost_per_day, 2),
+            'vehicle_cost_per_day': round(vehicle_cost_per_day, 2),
+            'cost_per_mile': round(cost_per_mile, 2),
+            'avg_mpg': round(float(avg_mpg), 2) if avg_mpg else 0,
+            'maintenance_breakdown': maintenance_breakdown,
+        }
+
     # Loan information
     loan_info = None
     if vehicle.loan_start_date:
@@ -239,6 +470,8 @@ def vehicle_detail(request, pk):
         'chart_data': chart_data,
         'chart_data_json': chart_data_json,
         'loan_info': loan_info,
+        'cost_info': cost_info,
+        'vehicle_stats': vehicle_stats,
     })
 
 

@@ -26,6 +26,8 @@ class Vehicle(models.Model):
     sold_date = models.DateField(null=True, blank=True)
     sold_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     sold_odometer = models.PositiveIntegerField(null=True, blank=True)
+    current_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Current estimated value (for unsold vehicles)")
+    current_value_date = models.DateField(null=True, blank=True, help_text="Date of current value estimate")
     fuel_type = models.CharField(max_length=10, choices=FUEL_CHOICES, default='gasoline')
 
     # Loan information

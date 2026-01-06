@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Vehicle Comparison - jAutoLog{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+            <h1 class="mb-0">
+                <i class="bi bi-bar-chart me-2"></i>Vehicle Comparison
+            </h1>
+            <div class="d-flex gap-2">
+                <a href="{% url 'vehicle_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to List
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if not vehicle_stats_list %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        No vehicles with complete data to compare. Add vehicles with purchase dates to see comparisons.
+    </div>
+    {% else %}
+
+    <!-- Mobile View: Column Selector and Table -->
+    <div class="d-md-none mb-4">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Select Column</h6>
+            </div>
+            <div class="card-body">
+                <select class="form-select" id="mobile-column-selector">
+                    <option value="days_owned" {% if sort_by == 'days_owned' %}selected{% endif %}>Days Owned</option>
+                    <option value="miles_driven" {% if sort_by == 'miles_driven' %}selected{% endif %}>Miles</option>
+                    <option value="total_cost" {% if sort_by == 'total_cost' %}selected{% endif %}>Total Cost</option>
+                    <option value="total_cost_per_day" {% if sort_by == 'total_cost_per_day' %}selected{% endif %}>Cost/Day</option>
+                    <option value="vehicle_cost_per_day" {% if sort_by == 'vehicle_cost_per_day' %}selected{% endif %}>Vehicle Cost/Day</option>
+                    <option value="cost_per_mile" {% if sort_by == 'cost_per_mile' %}selected{% endif %}>Cost/Mile</option>
+                    <option value="avg_mpg" {% if sort_by == 'avg_mpg' %}selected{% endif %}>Avg MPG</option>
+                    <option value="vehicle_cost" {% if sort_by == 'vehicle_cost' %}selected{% endif %}>Vehicle Cost</option>
+                    <option value="total_fuel" {% if sort_by == 'total_fuel' %}selected{% endif %}>Fuel</option>
+                    <option value="total_maintenance" {% if sort_by == 'total_maintenance' %}selected{% endif %}>Maintenance</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Vehicle</th>
+                            <th class="text-end">
+                                <a href="?sort={{ sort_by }}&dir={% if sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none" id="mobile-sort-link">
+                                    <span id="mobile-column-name">
+                                        {% if sort_by == 'days_owned' %}Days Owned
+                                        {% elif sort_by == 'miles_driven' %}Miles
+                                        {% elif sort_by == 'total_cost' %}Total Cost
+                                        {% elif sort_by == 'total_cost_per_day' %}Cost/Day
+                                        {% elif sort_by == 'vehicle_cost_per_day' %}Vehicle Cost/Day
+                                        {% elif sort_by == 'cost_per_mile' %}Cost/Mile
+                                        {% elif sort_by == 'avg_mpg' %}Avg MPG
+                                        {% elif sort_by == 'vehicle_cost' %}Vehicle Cost
+                                        {% elif sort_by == 'total_fuel' %}Fuel
+                                        {% elif sort_by == 'total_maintenance' %}Maintenance
+                                        {% endif %}
+                                    </span>
+                                    {% if sort_dir == 'asc' %}
+                                    <i class="bi bi-arrow-up"></i>
+                                    {% else %}
+                                    <i class="bi bi-arrow-down"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stats in vehicle_stats_list %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'vehicle_detail' stats.vehicle.pk %}" class="text-decoration-none">
+                                    {{ stats.vehicle }}
+                                </a>
+                                {% if stats.vehicle.is_sold %}
+                                <span class="badge bg-secondary">Sold</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold mobile-stat-cell" data-stat="{{ sort_by }}">
+                                {% if sort_by == 'days_owned' %}
+                                <span class="{% if stats.days_owned == min_max.days_owned_min %}text-success{% elif stats.days_owned == min_max.days_owned_max %}text-danger{% endif %}">{{ stats.days_owned|intcomma }}</span>
+                                {% elif sort_by == 'miles_driven' %}
+                                <span class="{% if stats.miles_driven == min_max.miles_driven_min %}text-success{% elif stats.miles_driven == min_max.miles_driven_max %}text-danger{% endif %}">{{ stats.miles_driven|intcomma }}</span>
+                                {% elif sort_by == 'total_cost' %}
+                                <span class="{% if stats.total_cost == min_max.total_cost_min %}text-success{% elif stats.total_cost == min_max.total_cost_max %}text-danger{% endif %}">${{ stats.total_cost|floatformat:2|intcomma }}</span>
+                                {% elif sort_by == 'total_cost_per_day' %}
+                                <span class="{% if stats.total_cost_per_day == min_max.total_cost_per_day_min %}text-success{% elif stats.total_cost_per_day == min_max.total_cost_per_day_max %}text-danger{% endif %}">${{ stats.total_cost_per_day|floatformat:2 }}</span>
+                                {% elif sort_by == 'vehicle_cost_per_day' %}
+                                <span class="{% if stats.vehicle_cost_per_day == min_max.vehicle_cost_per_day_min %}text-success{% elif stats.vehicle_cost_per_day == min_max.vehicle_cost_per_day_max %}text-danger{% endif %}">${{ stats.vehicle_cost_per_day|floatformat:2 }}</span>
+                                {% elif sort_by == 'cost_per_mile' %}
+                                <span class="{% if stats.cost_per_mile == min_max.cost_per_mile_min %}text-success{% elif stats.cost_per_mile == min_max.cost_per_mile_max %}text-danger{% endif %}">${{ stats.cost_per_mile|floatformat:2 }}</span>
+                                {% elif sort_by == 'avg_mpg' %}
+                                <span class="{% if stats.avg_mpg == min_max.avg_mpg_max %}text-success{% elif stats.avg_mpg == min_max.avg_mpg_min and stats.avg_mpg > 0 %}text-danger{% endif %}">{{ stats.avg_mpg|floatformat:1 }}</span>
+                                {% elif sort_by == 'vehicle_cost' %}
+                                <span class="{% if stats.vehicle_cost == min_max.vehicle_cost_min %}text-success{% elif stats.vehicle_cost == min_max.vehicle_cost_max %}text-danger{% endif %}">${{ stats.vehicle_cost|floatformat:2|intcomma }}</span>
+                                {% elif sort_by == 'total_fuel' %}
+                                <span class="{% if stats.total_fuel == min_max.total_fuel_min %}text-success{% elif stats.total_fuel == min_max.total_fuel_max %}text-danger{% endif %}">${{ stats.total_fuel|floatformat:2|intcomma }}</span>
+                                {% elif sort_by == 'total_maintenance' %}
+                                <span class="{% if stats.total_maintenance == min_max.total_maintenance_min %}text-success{% elif stats.total_maintenance == min_max.total_maintenance_max %}text-danger{% endif %}">${{ stats.total_maintenance|floatformat:2|intcomma }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer text-muted text-center">
+                <small>
+                    <span class="text-success fw-bold">Green</span> = Best •
+                    <span class="text-danger fw-bold">Red</span> = Worst
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Desktop View: Full Comparison Table -->
+    <div class="d-none d-md-block">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>
+                                    <a href="?sort=name&dir={% if sort_by == 'name' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Vehicle
+                                        {% if sort_by == 'name' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=days_owned&dir={% if sort_by == 'days_owned' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Days Owned
+                                        {% if sort_by == 'days_owned' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=miles_driven&dir={% if sort_by == 'miles_driven' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Miles
+                                        {% if sort_by == 'miles_driven' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=total_cost&dir={% if sort_by == 'total_cost' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Total Cost
+                                        {% if sort_by == 'total_cost' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=total_cost_per_day&dir={% if sort_by == 'total_cost_per_day' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Cost/Day
+                                        {% if sort_by == 'total_cost_per_day' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=vehicle_cost_per_day&dir={% if sort_by == 'vehicle_cost_per_day' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Vehicle Cost/Day
+                                        {% if sort_by == 'vehicle_cost_per_day' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=cost_per_mile&dir={% if sort_by == 'cost_per_mile' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Cost/Mile
+                                        {% if sort_by == 'cost_per_mile' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=avg_mpg&dir={% if sort_by == 'avg_mpg' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Avg MPG
+                                        {% if sort_by == 'avg_mpg' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=vehicle_cost&dir={% if sort_by == 'vehicle_cost' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Vehicle
+                                        {% if sort_by == 'vehicle_cost' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=total_fuel&dir={% if sort_by == 'total_fuel' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Fuel
+                                        {% if sort_by == 'total_fuel' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=total_maintenance&dir={% if sort_by == 'total_maintenance' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Maint.
+                                        {% if sort_by == 'total_maintenance' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stats in vehicle_stats_list %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'vehicle_detail' stats.vehicle.pk %}" class="text-decoration-none">
+                                        <strong>{{ stats.vehicle }}</strong>
+                                    </a>
+                                    {% if stats.vehicle.is_sold %}
+                                    <span class="badge bg-secondary ms-2">Sold</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end {% if stats.days_owned == min_max.days_owned_min %}bg-success bg-opacity-10 fw-bold{% elif stats.days_owned == min_max.days_owned_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    {{ stats.days_owned|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.miles_driven == min_max.miles_driven_min %}bg-success bg-opacity-10 fw-bold{% elif stats.miles_driven == min_max.miles_driven_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    {{ stats.miles_driven|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.total_cost == min_max.total_cost_min %}bg-success bg-opacity-10 fw-bold{% elif stats.total_cost == min_max.total_cost_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.total_cost|floatformat:2|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.total_cost_per_day == min_max.total_cost_per_day_min %}bg-success bg-opacity-10 fw-bold{% elif stats.total_cost_per_day == min_max.total_cost_per_day_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.total_cost_per_day|floatformat:2 }}
+                                </td>
+                                <td class="text-end {% if stats.vehicle_cost_per_day == min_max.vehicle_cost_per_day_min %}bg-success bg-opacity-10 fw-bold{% elif stats.vehicle_cost_per_day == min_max.vehicle_cost_per_day_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.vehicle_cost_per_day|floatformat:2 }}
+                                </td>
+                                <td class="text-end {% if stats.cost_per_mile == min_max.cost_per_mile_min %}bg-success bg-opacity-10 fw-bold{% elif stats.cost_per_mile == min_max.cost_per_mile_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.cost_per_mile|floatformat:2 }}
+                                </td>
+                                <td class="text-end {% if stats.avg_mpg == min_max.avg_mpg_max %}bg-success bg-opacity-10 fw-bold{% elif stats.avg_mpg == min_max.avg_mpg_min and stats.avg_mpg > 0 %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    {{ stats.avg_mpg|floatformat:1 }}
+                                </td>
+                                <td class="text-end {% if stats.vehicle_cost == min_max.vehicle_cost_min %}bg-success bg-opacity-10 fw-bold{% elif stats.vehicle_cost == min_max.vehicle_cost_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.vehicle_cost|floatformat:2|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.total_fuel == min_max.total_fuel_min %}bg-success bg-opacity-10 fw-bold{% elif stats.total_fuel == min_max.total_fuel_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.total_fuel|floatformat:2|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.total_maintenance == min_max.total_maintenance_min %}bg-success bg-opacity-10 fw-bold{% elif stats.total_maintenance == min_max.total_maintenance_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.total_maintenance|floatformat:2|intcomma }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer text-muted">
+                <small>
+                    <i class="bi bi-info-circle me-1"></i>
+                    <span class="bg-success bg-opacity-10 px-2 py-1 rounded me-2">Green</span> = Best (lowest cost or highest MPG)
+                    <span class="bg-danger bg-opacity-10 px-2 py-1 rounded ms-2">Red</span> = Worst (highest cost or lowest MPG)
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Mobile column selector
+document.addEventListener('DOMContentLoaded', function() {
+    const selector = document.getElementById('mobile-column-selector');
+    if (selector) {
+        selector.addEventListener('change', function() {
+            const selectedColumn = this.value;
+            const currentDir = '{{ sort_dir }}';
+            window.location.href = '?sort=' + selectedColumn + '&dir=' + currentDir;
+        });
+    }
+});
+</script>
+{% endblock %}

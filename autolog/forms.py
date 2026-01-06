@@ -9,7 +9,7 @@ class VehicleForm(forms.ModelForm):
             'year', 'make', 'model', 'color', 'fuel_type',
             'vin_number', 'license_plate_number', 'registration_number', 'state',
             'purchased_date', 'purchased_price', 'purchased_odometer', 'dealer_name',
-            'sold_date', 'sold_price', 'sold_odometer',
+            'sold_date', 'sold_price', 'sold_odometer', 'current_value', 'current_value_date',
             'loan_start_date', 'loan_amount', 'loan_interest_rate', 'loan_term_months',
             'loan_payment_day', 'loan_auto_payment',
         ]
@@ -30,6 +30,8 @@ class VehicleForm(forms.ModelForm):
             'sold_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'sold_price': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Sale Price', 'step': '0.01'}),
             'sold_odometer': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Odometer at Sale'}),
+            'current_value': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Current Value', 'step': '0.01'}),
+            'current_value_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'loan_start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'loan_amount': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Loan Amount', 'step': '0.01'}),
             'loan_interest_rate': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g., 5.75', 'step': '0.001'}),

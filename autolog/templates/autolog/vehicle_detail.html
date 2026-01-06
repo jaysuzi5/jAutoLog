@@ -135,12 +135,41 @@
 
                         <dt class="col-5 col-sm-4">Odometer</dt>
                         <dd class="col-7 col-sm-8">{% if vehicle.sold_odometer %}{{ vehicle.sold_odometer|intcomma }} mi{% else %}-{% endif %}</dd>
+
+                        {% if cost_info %}
+                        <dt class="col-5 col-sm-4 pt-2 border-top">Cost</dt>
+                        <dd class="col-7 col-sm-8 pt-2 border-top">
+                            <span class="{% if cost_info.cost > 0 %}text-danger{% else %}text-success{% endif %}">
+                                ${{ cost_info.cost|floatformat:2|intcomma }}
+                            </span>
+                        </dd>
+                        {% endif %}
                     </dl>
                     {% else %}
-                    <div class="text-center py-3">
-                        <i class="bi bi-car-front text-muted" style="font-size: 2rem;"></i>
-                        <p class="text-muted mb-0 mt-2">This vehicle has not been sold.</p>
-                    </div>
+                    <dl class="row mb-0">
+                        {% if vehicle.current_value %}
+                        <dt class="col-5 col-sm-4">Current Value</dt>
+                        <dd class="col-7 col-sm-8">${{ vehicle.current_value|floatformat:2|intcomma }}</dd>
+
+                        <dt class="col-5 col-sm-4">As of Date</dt>
+                        <dd class="col-7 col-sm-8">{{ vehicle.current_value_date|default:"-" }}</dd>
+
+                        {% if cost_info %}
+                        <dt class="col-5 col-sm-4 pt-2 border-top">Cost</dt>
+                        <dd class="col-7 col-sm-8 pt-2 border-top">
+                            <span class="{% if cost_info.cost > 0 %}text-danger{% else %}text-success{% endif %}">
+                                ${{ cost_info.cost|floatformat:2|intcomma }}
+                            </span>
+                        </dd>
+                        {% endif %}
+                        {% else %}
+                        <div class="text-center py-3">
+                            <i class="bi bi-car-front text-muted" style="font-size: 2rem;"></i>
+                            <p class="text-muted mb-0 mt-2">This vehicle has not been sold.</p>
+                            <p class="text-muted mb-0 mt-1"><small>Add current value in vehicle edit to see cost analysis.</small></p>
+                        </div>
+                        {% endif %}
+                    </dl>
                     {% endif %}
                 </div>
             </div>
@@ -215,6 +244,143 @@
                         <small>Auto-payment enabled - Payment entries are automatically generated on day {{ vehicle.loan_payment_day }} of each month.</small>
                     </div>
                     {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Vehicle Statistics -->
+    {% if vehicle_stats %}
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-info bg-opacity-10">
+                    <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Vehicle Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <!-- Summary Stats -->
+                        <div class="col-md-6 col-lg-3 mb-3 mb-lg-0">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-1">Days Owned</small>
+                                <h4 class="mb-0">{{ vehicle_stats.days_owned|intcomma }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-3 mb-lg-0">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-1">Miles Driven</small>
+                                <h4 class="mb-0">{{ vehicle_stats.miles_driven|intcomma }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-3 mb-lg-0">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-1">Average MPG</small>
+                                <h4 class="mb-0">{{ vehicle_stats.avg_mpg|floatformat:1 }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-1">Cost Per Mile</small>
+                                <h4 class="mb-0">${{ vehicle_stats.cost_per_mile|floatformat:2 }}</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Cost Breakdown -->
+                        <div class="col-lg-4 mb-3 mb-lg-0">
+                            <div class="card bg-primary bg-opacity-10 h-100">
+                                <div class="card-header bg-transparent border-primary">
+                                    <h6 class="mb-0 text-primary"><i class="bi bi-receipt me-2"></i>Cost Breakdown</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Vehicle:</span>
+                                        <strong>${{ vehicle_stats.vehicle_cost|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Interest:</span>
+                                        <strong>${{ cost_info.interest_paid|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Gas:</span>
+                                        <strong>${{ vehicle_stats.total_fuel|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Maintenance:</span>
+                                        <strong>${{ vehicle_stats.total_maintenance|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Insurance:</span>
+                                        <strong>${{ vehicle_stats.total_insurance|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Registration:</span>
+                                        <strong>${{ vehicle_stats.total_registration|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <hr class="my-2">
+                                    <div class="d-flex justify-content-between">
+                                        <strong class="text-primary">Total Cost:</strong>
+                                        <strong class="text-primary">${{ vehicle_stats.total_cost|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Maintenance Breakdown -->
+                        <div class="col-lg-4 mb-3 mb-lg-0">
+                            <div class="card bg-warning bg-opacity-10 h-100">
+                                <div class="card-header bg-transparent border-warning">
+                                    <h6 class="mb-0 text-warning"><i class="bi bi-wrench me-2"></i>Maintenance Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Oil:</span>
+                                        <strong>${{ vehicle_stats.maintenance_breakdown.oil|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Repairs:</span>
+                                        <strong>${{ vehicle_stats.maintenance_breakdown.repairs|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Tires:</span>
+                                        <strong>${{ vehicle_stats.maintenance_breakdown.tires|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Wash:</span>
+                                        <strong>${{ vehicle_stats.maintenance_breakdown.wash|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Accessories:</span>
+                                        <strong>${{ vehicle_stats.maintenance_breakdown.accessories|floatformat:2|intcomma }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Daily Costs -->
+                        <div class="col-lg-4">
+                            <div class="card bg-success bg-opacity-10 h-100">
+                                <div class="card-header bg-transparent border-success">
+                                    <h6 class="mb-0 text-success"><i class="bi bi-calendar-day me-2"></i>Daily Costs</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block mb-1">Total Cost Per Day</small>
+                                        <h3 class="mb-0 text-success">${{ vehicle_stats.total_cost_per_day|floatformat:2 }}</h3>
+                                        <small class="text-muted">All expenses included</small>
+                                    </div>
+                                    <hr class="my-3">
+                                    <div>
+                                        <small class="text-muted d-block mb-1">Vehicle Cost Per Day</small>
+                                        <h3 class="mb-0 text-success">${{ vehicle_stats.vehicle_cost_per_day|floatformat:2 }}</h3>
+                                        <small class="text-muted">Vehicle cost only</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

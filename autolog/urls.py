@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    home, vehicle_list, vehicle_create, vehicle_detail, vehicle_edit,
+    home, vehicle_list, vehicle_comparison, vehicle_create, vehicle_detail, vehicle_edit,
     fuel_entry_create, fuel_entry_detail, fuel_entry_edit, fuel_entry_delete,
     maintenance_entry_list, maintenance_entry_create, maintenance_entry_edit, maintenance_entry_delete,
     other_expense_list, other_expense_create, other_expense_edit, other_expense_delete
@@ -9,6 +9,7 @@ from .views import (
 urlpatterns = [
     path("", home, name="home"),
     path("vehicles/", vehicle_list, name="vehicle_list"),
+    path("vehicles/compare/", vehicle_comparison, name="vehicle_comparison"),
     path("vehicles/new/", vehicle_create, name="vehicle_create"),
     path("vehicles/<int:pk>/", vehicle_detail, name="vehicle_detail"),
     path("vehicles/<int:pk>/edit/", vehicle_edit, name="vehicle_edit"),
