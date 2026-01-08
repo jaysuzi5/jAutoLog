@@ -191,56 +191,131 @@
             <div class="col-12 mb-4">
                 <div class="card">
                     <div class="card-header bg-warning bg-opacity-10">
-                        <h5 class="mb-0"><i class="bi bi-cash-coin me-2"></i>Loan Information (Optional)</h5>
+                        <h5 class="mb-0"><i class="bi bi-cash-coin me-2"></i>Financing Information (Optional)</h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
+                        <div class="row mb-4">
                             <div class="col-md-6">
                                 <div class="row mb-3 align-items-center">
-                                    <label for="{{ form.loan_start_date.id_for_label }}" class="col-5 col-form-label">Start Date</label>
+                                    <label for="{{ form.financing_type.id_for_label }}" class="col-5 col-form-label">Financing Type</label>
                                     <div class="col-7">
-                                        {{ form.loan_start_date }}
-                                        {% if form.loan_start_date.errors %}<div class="text-danger small">{{ form.loan_start_date.errors.0 }}</div>{% endif %}
-                                    </div>
-                                </div>
-                                <div class="row mb-3 align-items-center">
-                                    <label for="{{ form.loan_amount.id_for_label }}" class="col-5 col-form-label">Loan Amount</label>
-                                    <div class="col-7">
-                                        {{ form.loan_amount }}
-                                        {% if form.loan_amount.errors %}<div class="text-danger small">{{ form.loan_amount.errors.0 }}</div>{% endif %}
+                                        {{ form.financing_type }}
+                                        {% if form.financing_type.errors %}<div class="text-danger small">{{ form.financing_type.errors.0 }}</div>{% endif %}
                                     </div>
                                 </div>
                                 <div class="row align-items-center">
-                                    <label for="{{ form.loan_interest_rate.id_for_label }}" class="col-5 col-form-label">Interest Rate (%)</label>
+                                    <label for="{{ form.down_payment.id_for_label }}" class="col-5 col-form-label">Down Payment</label>
                                     <div class="col-7">
-                                        {{ form.loan_interest_rate }}
-                                        {% if form.loan_interest_rate.errors %}<div class="text-danger small">{{ form.loan_interest_rate.errors.0 }}</div>{% endif %}
+                                        {{ form.down_payment }}
+                                        {% if form.down_payment.errors %}<div class="text-danger small">{{ form.down_payment.errors.0 }}</div>{% endif %}
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="row mb-3 align-items-center">
-                                    <label for="{{ form.loan_term_months.id_for_label }}" class="col-5 col-form-label">Term (months)</label>
-                                    <div class="col-7">
-                                        {{ form.loan_term_months }}
-                                        {% if form.loan_term_months.errors %}<div class="text-danger small">{{ form.loan_term_months.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <!-- Loan Fields -->
+                        <div id="loan-fields" style="display: none;">
+                            <hr class="my-3">
+                            <h6 class="text-muted mb-3"><i class="bi bi-bank me-2"></i>Loan Details</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="row mb-3 align-items-center">
+                                        <label for="{{ form.loan_start_date.id_for_label }}" class="col-5 col-form-label">Start Date</label>
+                                        <div class="col-7">
+                                            {{ form.loan_start_date }}
+                                            {% if form.loan_start_date.errors %}<div class="text-danger small">{{ form.loan_start_date.errors.0 }}</div>{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <label for="{{ form.loan_amount.id_for_label }}" class="col-5 col-form-label">Amount Financed</label>
+                                        <div class="col-7">
+                                            {{ form.loan_amount }}
+                                            {% if form.loan_amount.errors %}<div class="text-danger small">{{ form.loan_amount.errors.0 }}</div>{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="row align-items-center">
+                                        <label for="{{ form.loan_interest_rate.id_for_label }}" class="col-5 col-form-label">Interest Rate (%)</label>
+                                        <div class="col-7">
+                                            {{ form.loan_interest_rate }}
+                                            {% if form.loan_interest_rate.errors %}<div class="text-danger small">{{ form.loan_interest_rate.errors.0 }}</div>{% endif %}
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="row mb-3 align-items-center">
-                                    <label for="{{ form.loan_payment_day.id_for_label }}" class="col-5 col-form-label">Payment Day</label>
-                                    <div class="col-7">
-                                        {{ form.loan_payment_day }}
-                                        {% if form.loan_payment_day.errors %}<div class="text-danger small">{{ form.loan_payment_day.errors.0 }}</div>{% endif %}
+                                <div class="col-md-6">
+                                    <div class="row mb-3 align-items-center">
+                                        <label for="{{ form.loan_term_months.id_for_label }}" class="col-5 col-form-label">Term (months)</label>
+                                        <div class="col-7">
+                                            {{ form.loan_term_months }}
+                                            {% if form.loan_term_months.errors %}<div class="text-danger small">{{ form.loan_term_months.errors.0 }}</div>{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <label for="{{ form.loan_payment_day.id_for_label }}" class="col-5 col-form-label">Payment Day</label>
+                                        <div class="col-7">
+                                            {{ form.loan_payment_day }}
+                                            {% if form.loan_payment_day.errors %}<div class="text-danger small">{{ form.loan_payment_day.errors.0 }}</div>{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="row align-items-center">
+                                        <div class="col-5"></div>
+                                        <div class="col-7">
+                                            <div class="form-check">
+                                                {{ form.loan_auto_payment }}
+                                                <label class="form-check-label" for="{{ form.loan_auto_payment.id_for_label }}">
+                                                    Auto-generate monthly payments
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="row align-items-center">
-                                    <div class="col-5"></div>
-                                    <div class="col-7">
-                                        <div class="form-check">
-                                            {{ form.loan_auto_payment }}
-                                            <label class="form-check-label" for="{{ form.loan_auto_payment.id_for_label }}">
-                                                Auto-generate monthly payments
-                                            </label>
+                            </div>
+                        </div>
+
+                        <!-- Lease Fields -->
+                        <div id="lease-fields" style="display: none;">
+                            <hr class="my-3">
+                            <h6 class="text-muted mb-3"><i class="bi bi-file-text me-2"></i>Lease Details</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="row mb-3 align-items-center">
+                                        <label for="{{ form.lease_start_date.id_for_label }}" class="col-5 col-form-label">Start Date</label>
+                                        <div class="col-7">
+                                            {{ form.lease_start_date }}
+                                            {% if form.lease_start_date.errors %}<div class="text-danger small">{{ form.lease_start_date.errors.0 }}</div>{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <label for="{{ form.lease_payment_amount.id_for_label }}" class="col-5 col-form-label">Monthly Payment</label>
+                                        <div class="col-7">
+                                            {{ form.lease_payment_amount }}
+                                            {% if form.lease_payment_amount.errors %}<div class="text-danger small">{{ form.lease_payment_amount.errors.0 }}</div>{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="row mb-3 align-items-center">
+                                        <label for="{{ form.lease_term_months.id_for_label }}" class="col-5 col-form-label">Term (months)</label>
+                                        <div class="col-7">
+                                            {{ form.lease_term_months }}
+                                            {% if form.lease_term_months.errors %}<div class="text-danger small">{{ form.lease_term_months.errors.0 }}</div>{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <label for="{{ form.lease_payment_day.id_for_label }}" class="col-5 col-form-label">Payment Day</label>
+                                        <div class="col-7">
+                                            {{ form.lease_payment_day }}
+                                            {% if form.lease_payment_day.errors %}<div class="text-danger small">{{ form.lease_payment_day.errors.0 }}</div>{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="row align-items-center">
+                                        <div class="col-5"></div>
+                                        <div class="col-7">
+                                            <div class="form-check">
+                                                {{ form.lease_auto_payment }}
+                                                <label class="form-check-label" for="{{ form.lease_auto_payment.id_for_label }}">
+                                                    Auto-generate monthly payments
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -252,4 +327,33 @@
         </div>
     </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const financingTypeSelect = document.getElementById('{{ form.financing_type.id_for_label }}');
+    const loanFields = document.getElementById('loan-fields');
+    const leaseFields = document.getElementById('lease-fields');
+
+    function toggleFinancingFields() {
+        const financingType = financingTypeSelect.value;
+
+        if (financingType === 'loan') {
+            loanFields.style.display = 'block';
+            leaseFields.style.display = 'none';
+        } else if (financingType === 'lease') {
+            loanFields.style.display = 'none';
+            leaseFields.style.display = 'block';
+        } else {
+            loanFields.style.display = 'none';
+            leaseFields.style.display = 'none';
+        }
+    }
+
+    // Initialize on page load
+    toggleFinancingFields();
+
+    // Toggle when financing type changes
+    financingTypeSelect.addEventListener('change', toggleFinancingFields);
+});
+</script>
 {% endblock %}

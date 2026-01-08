@@ -10,9 +10,17 @@ class VehicleForm(forms.ModelForm):
             'vin_number', 'license_plate_number', 'registration_number', 'state',
             'purchased_date', 'purchased_price', 'purchased_odometer', 'dealer_name',
             'sold_date', 'sold_price', 'sold_odometer', 'current_value', 'current_value_date',
+            'financing_type', 'down_payment',
             'loan_start_date', 'loan_amount', 'loan_interest_rate', 'loan_term_months',
             'loan_payment_day', 'loan_auto_payment',
+            'lease_start_date', 'lease_payment_amount', 'lease_term_months',
+            'lease_payment_day', 'lease_auto_payment',
         ]
+        labels = {
+            'sold_date': 'Sold/Return Date',
+            'sold_price': 'Sale/Return Price',
+            'sold_odometer': 'Odometer at Sale/Return',
+        }
         widgets = {
             'year': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Year'}),
             'make': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Make'}),
@@ -32,12 +40,19 @@ class VehicleForm(forms.ModelForm):
             'sold_odometer': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Odometer at Sale'}),
             'current_value': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Current Value', 'step': '0.01'}),
             'current_value_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'financing_type': forms.Select(attrs={'class': 'form-select'}),
+            'down_payment': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Down Payment', 'step': '0.01'}),
             'loan_start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'loan_amount': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Loan Amount', 'step': '0.01'}),
+            'loan_amount': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Amount Financed', 'step': '0.01'}),
             'loan_interest_rate': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g., 5.75', 'step': '0.001'}),
             'loan_term_months': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Number of months'}),
             'loan_payment_day': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Day of month (1-31)', 'min': '1', 'max': '31'}),
             'loan_auto_payment': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'lease_start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'lease_payment_amount': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Monthly Payment', 'step': '0.01'}),
+            'lease_term_months': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Number of months'}),
+            'lease_payment_day': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Day of month (1-31)', 'min': '1', 'max': '31'}),
+            'lease_auto_payment': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 

@@ -79,14 +79,11 @@
                     </thead>
                     <tbody>
                         {% for stats in vehicle_stats_list %}
-                        <tr>
+                        <tr {% if stats.vehicle.is_sold %}class="table-secondary bg-opacity-25"{% endif %}>
                             <td>
                                 <a href="{% url 'vehicle_detail' stats.vehicle.pk %}" class="text-decoration-none">
                                     {{ stats.vehicle }}
                                 </a>
-                                {% if stats.vehicle.is_sold %}
-                                <span class="badge bg-secondary">Sold</span>
-                                {% endif %}
                             </td>
                             <td class="text-end fw-bold mobile-stat-cell" data-stat="{{ sort_by }}">
                                 {% if sort_by == 'days_owned' %}
@@ -225,14 +222,11 @@
                         </thead>
                         <tbody>
                             {% for stats in vehicle_stats_list %}
-                            <tr>
+                            <tr {% if stats.vehicle.is_sold %}class="table-secondary bg-opacity-25"{% endif %}>
                                 <td>
                                     <a href="{% url 'vehicle_detail' stats.vehicle.pk %}" class="text-decoration-none">
                                         <strong>{{ stats.vehicle }}</strong>
                                     </a>
-                                    {% if stats.vehicle.is_sold %}
-                                    <span class="badge bg-secondary ms-2">Sold</span>
-                                    {% endif %}
                                 </td>
                                 <td class="text-end {% if stats.days_owned == min_max.days_owned_min %}bg-success bg-opacity-10 fw-bold{% elif stats.days_owned == min_max.days_owned_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
                                     {{ stats.days_owned|intcomma }}

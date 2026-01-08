@@ -52,7 +52,7 @@
                                 <i class="bi bi-info-circle me-1"></i>
                                 Current: {{ current_count }} / {{ max_images }} images
                                 {% if current_count < max_images %}
-                                    ({{ max_images|add:"-"|add:current_count }} remaining)
+                                    ({{ remaining_count }} remaining)
                                 {% endif %}
                             </div>
                         </div>
@@ -152,31 +152,32 @@
 
 <!-- Image Viewer Modal -->
 <div class="modal fade" id="imageViewerModal" tabindex="-1" aria-labelledby="imageViewerModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-fullscreen-md-down modal-xl modal-dialog-centered">
         <div class="modal-content bg-dark">
-            <div class="modal-header border-secondary">
+            <div class="modal-header border-secondary py-2">
                 <h5 class="modal-title text-white" id="imageViewerModalLabel">Image Viewer</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body position-relative p-0">
-                <div class="d-flex align-items-center justify-content-center" style="min-height: 60vh;">
-                    <img id="viewerImage" src="" alt="" class="img-fluid" style="max-height: 80vh; max-width: 100%;">
-                </div>
-                <div id="viewerCaption" class="text-white text-center p-3 bg-dark bg-opacity-75"></div>
+            <div class="modal-body position-relative p-0" id="imageViewerBody" style="cursor: pointer;">
+                <!-- Clickable zones for navigation -->
+                <div class="position-absolute top-0 bottom-0 start-0"
+                     style="width: 40%; z-index: 10;"
+                     onclick="previousImage()"
+                     id="prevZone"></div>
+                <div class="position-absolute top-0 bottom-0 end-0"
+                     style="width: 40%; z-index: 10;"
+                     onclick="nextImage()"
+                     id="nextZone"></div>
 
-                <!-- Navigation Buttons -->
-                <button type="button" class="btn btn-light position-absolute top-50 start-0 translate-middle-y ms-3"
-                        onclick="previousImage()" id="prevBtn" style="opacity: 0.8;">
-                    <i class="bi bi-chevron-left"></i>
-                </button>
-                <button type="button" class="btn btn-light position-absolute top-50 end-0 translate-middle-y me-3"
-                        onclick="nextImage()" id="nextBtn" style="opacity: 0.8;">
-                    <i class="bi bi-chevron-right"></i>
-                </button>
+                <!-- Image container -->
+                <div class="d-flex align-items-center justify-content-center" style="min-height: 50vh; max-height: 70vh;">
+                    <img id="viewerImage" src="" alt="" class="img-fluid w-100" style="max-height: 70vh; object-fit: contain;">
+                </div>
+                <div id="viewerCaption" class="text-white text-center p-2 bg-dark bg-opacity-75"></div>
             </div>
-            <div class="modal-footer border-secondary">
+            <div class="modal-footer border-secondary py-2">
                 <span id="imageCounter" class="text-white me-auto"></span>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -223,9 +224,19 @@ function showImage() {
     document.getElementById('viewerCaption').innerHTML = captionHtml;
     document.getElementById('imageCounter').textContent = `Image ${currentImageIndex + 1} of ${images.length}`;
 
-    // Enable/disable navigation buttons
-    document.getElementById('prevBtn').disabled = (currentImageIndex === 0);
-    document.getElementById('nextBtn').disabled = (currentImageIndex === images.length - 1);
+    // Show/hide click zones based on availability
+    const prevZone = document.getElementById('prevZone');
+    const nextZone = document.getElementById('nextZone');
+
+    if (prevZone) {
+        prevZone.style.display = (currentImageIndex === 0) ? 'none' : 'block';
+        prevZone.style.cursor = (currentImageIndex === 0) ? 'default' : 'pointer';
+    }
+
+    if (nextZone) {
+        nextZone.style.display = (currentImageIndex === images.length - 1) ? 'none' : 'block';
+        nextZone.style.cursor = (currentImageIndex === images.length - 1) ? 'default' : 'pointer';
+    }
 }
 
 function previousImage() {

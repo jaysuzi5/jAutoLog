@@ -9,6 +9,47 @@ from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 
 
+def record_down_payment(vehicle):
+    """Record down payment as an expense when vehicle is created/edited"""
+    # Check if down payment exists and is valid
+    if not vehicle.down_payment:
+        return False
+
+    try:
+        down_payment_amount = float(vehicle.down_payment)
+        if down_payment_amount <= 0:
+            return False
+    except (ValueError, TypeError):
+        return False
+
+    # Check if down payment already exists
+    existing = vehicle.other_expenses.filter(
+        expense_type='vehicle_payment',
+        notes__iexact='down payment'
+    ).first()
+
+    if existing:
+        # Update existing down payment if amount changed
+        if float(existing.cost) != down_payment_amount:
+            existing.cost = down_payment_amount
+            existing.save()
+            return True
+        return False
+
+    # Use purchase date or today
+    payment_date = vehicle.purchased_date if vehicle.purchased_date else date.today()
+
+    # Create down payment expense
+    OtherExpense.objects.create(
+        vehicle=vehicle,
+        expense_type='vehicle_payment',
+        date=payment_date,
+        cost=vehicle.down_payment,
+        notes='Down payment'
+    )
+    return True
+
+
 def generate_loan_payments(vehicle):
     """Auto-generate missing loan payment entries if auto-payment is enabled"""
     if not vehicle.loan_auto_payment or not all([
@@ -51,7 +92,8 @@ def generate_loan_payments(vehicle):
         month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
         existing_payment = vehicle.other_expenses.filter(
-            expense_type='loan',
+            expense_type='vehicle_payment',
+            notes__icontains='loan payment',
             date__gte=month_start,
             date__lte=month_end
         ).first()
@@ -60,7 +102,7 @@ def generate_loan_payments(vehicle):
             # Create the payment
             OtherExpense.objects.create(
                 vehicle=vehicle,
-                expense_type='loan',
+                expense_type='vehicle_payment',
                 date=payment_date,
                 cost=monthly_payment,
                 notes=f'Auto-generated loan payment'
@@ -74,6 +116,81 @@ def generate_loan_payments(vehicle):
             if next_month.day != vehicle.loan_payment_day:
                 try:
                     payment_date = next_month.replace(day=vehicle.loan_payment_day)
+                except ValueError:
+                    # Day doesn't exist in this month
+                    next_next_month = next_month.replace(day=1) + relativedelta(months=1)
+                    payment_date = next_next_month - timedelta(days=1)
+            else:
+                payment_date = next_month
+        except:
+            break
+
+    return created_count
+
+
+def generate_lease_payments(vehicle):
+    """Auto-generate missing lease payment entries if auto-payment is enabled"""
+    if not vehicle.lease_auto_payment or not all([
+        vehicle.lease_start_date,
+        vehicle.lease_payment_day,
+        vehicle.lease_term_months,
+        vehicle.lease_payment_amount
+    ]):
+        return 0
+
+    created_count = 0
+    current_date = date.today()
+
+    # Calculate lease end date
+    lease_end_date = vehicle.lease_start_date + relativedelta(months=vehicle.lease_term_months)
+
+    # Don't create payments beyond today or lease end
+    max_date = min(current_date, lease_end_date)
+
+    # Start from lease start date
+    payment_date = vehicle.lease_start_date
+
+    # Adjust to the correct day of month
+    if payment_date.day != vehicle.lease_payment_day:
+        # Move to the payment day in the same month or next month
+        try:
+            payment_date = payment_date.replace(day=vehicle.lease_payment_day)
+        except ValueError:
+            # Day doesn't exist in this month (e.g., 31st in February)
+            # Move to last day of month
+            next_month = payment_date.replace(day=1) + relativedelta(months=1)
+            payment_date = next_month - timedelta(days=1)
+
+    while payment_date <= max_date:
+        # Check if payment already exists for this month
+        month_start = payment_date.replace(day=1)
+        month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
+
+        existing_payment = vehicle.other_expenses.filter(
+            expense_type='vehicle_payment',
+            notes__icontains='lease payment',
+            date__gte=month_start,
+            date__lte=month_end
+        ).first()
+
+        if not existing_payment:
+            # Create the payment
+            OtherExpense.objects.create(
+                vehicle=vehicle,
+                expense_type='vehicle_payment',
+                date=payment_date,
+                cost=vehicle.lease_payment_amount,
+                notes=f'Auto-generated lease payment'
+            )
+            created_count += 1
+
+        # Move to next month's payment date
+        try:
+            next_month = payment_date + relativedelta(months=1)
+            # Ensure we're on the correct payment day
+            if next_month.day != vehicle.lease_payment_day:
+                try:
+                    payment_date = next_month.replace(day=vehicle.lease_payment_day)
                 except ValueError:
                     # Day doesn't exist in this month
                     next_next_month = next_month.replace(day=1) + relativedelta(months=1)
@@ -132,44 +249,60 @@ def vehicle_comparison(request):
     vehicles = Vehicle.objects.filter(user=request.user)
 
     # Get sorting parameters
-    sort_by = request.GET.get('sort', 'name')
+    sort_by = request.GET.get('sort', 'days_owned')  # Default to days_owned for mobile compatibility
     sort_dir = request.GET.get('dir', 'desc')  # 'asc' or 'desc'
 
     # Calculate statistics for each vehicle
     vehicle_stats_list = []
 
     for vehicle in vehicles:
-        # Skip vehicles without purchase date
-        if not vehicle.purchased_date:
+        # Skip vehicles without purchase date or lease start date
+        start_date = vehicle.purchased_date or vehicle.lease_start_date
+        if not start_date:
             continue
 
-        # Calculate days owned
+        # Calculate days owned/leased
         end_date = vehicle.sold_date if vehicle.is_sold else date.today()
-        days_owned = (end_date - vehicle.purchased_date).days
+        days_owned = (end_date - start_date).days
         if days_owned == 0:
             days_owned = 1
 
         # Calculate miles driven
         miles_driven = 0
-        if vehicle.is_sold and vehicle.sold_odometer and vehicle.purchased_odometer:
-            miles_driven = vehicle.sold_odometer - vehicle.purchased_odometer
-        elif not vehicle.is_sold and vehicle.purchased_odometer:
+        start_odometer = vehicle.purchased_odometer
+
+        if vehicle.is_sold and vehicle.sold_odometer:
+            if start_odometer:
+                miles_driven = vehicle.sold_odometer - start_odometer
+            else:
+                miles_driven = vehicle.sold_odometer
+        elif start_odometer:
             latest_fuel = vehicle.fuel_entries.order_by('-odometer').first()
             latest_maintenance = vehicle.maintenance_entries.order_by('-odometer').first()
 
-            latest_odometer = vehicle.purchased_odometer
+            latest_odometer = start_odometer
             if latest_fuel and latest_fuel.odometer > latest_odometer:
                 latest_odometer = latest_fuel.odometer
             if latest_maintenance and latest_maintenance.odometer > latest_odometer:
                 latest_odometer = latest_maintenance.odometer
 
-            miles_driven = latest_odometer - vehicle.purchased_odometer
+            miles_driven = latest_odometer - start_odometer
+        else:
+            # No start odometer - use latest odometer reading
+            latest_fuel = vehicle.fuel_entries.order_by('-odometer').first()
+            latest_maintenance = vehicle.maintenance_entries.order_by('-odometer').first()
+
+            if latest_fuel:
+                miles_driven = latest_fuel.odometer
+            if latest_maintenance and latest_maintenance.odometer > miles_driven:
+                miles_driven = latest_maintenance.odometer
 
         # Calculate costs
         total_fuel = vehicle.fuel_entries.aggregate(total=Sum('cost'))['total'] or 0
         total_maintenance = vehicle.maintenance_entries.aggregate(total=Sum('cost'))['total'] or 0
         total_insurance = vehicle.other_expenses.filter(expense_type='insurance').aggregate(total=Sum('cost'))['total'] or 0
         total_registration = vehicle.other_expenses.filter(expense_type='registration').aggregate(total=Sum('cost'))['total'] or 0
+        total_vehicle_payments = vehicle.other_expenses.filter(expense_type='vehicle_payment').aggregate(total=Sum('cost'))['total'] or 0
 
         # Vehicle cost calculation
         if vehicle.purchased_price:
@@ -183,7 +316,8 @@ def vehicle_comparison(request):
             cost = 0
 
         interest_paid = vehicle.get_interest_paid_to_date() or 0
-        vehicle_cost = cost + float(interest_paid)
+        # Vehicle cost = depreciation + interest + all vehicle payments (down payment, loan payments, lease payments)
+        vehicle_cost = cost + float(interest_paid) + float(total_vehicle_payments)
 
         total_cost = vehicle_cost + float(total_fuel) + float(total_maintenance) + float(total_insurance) + float(total_registration)
 
@@ -269,6 +403,17 @@ def vehicle_create(request):
             vehicle = form.save(commit=False)
             vehicle.user = request.user
             vehicle.save()
+
+            # Record down payment if provided
+            if record_down_payment(vehicle):
+                log_event(
+                    request=request,
+                    event="Down payment recorded",
+                    level="INFO",
+                    vehicle_id=vehicle.id,
+                    amount=float(vehicle.down_payment)
+                )
+
             log_event(
                 request=request,
                 event="Vehicle created",
@@ -304,6 +449,17 @@ def vehicle_detail(request, pk):
             level="INFO",
             vehicle_id=vehicle.id,
             payments_created=payments_created
+        )
+
+    # Auto-generate lease payments if enabled
+    lease_payments_created = generate_lease_payments(vehicle)
+    if lease_payments_created > 0:
+        log_event(
+            request=request,
+            event="Auto-generated lease payments",
+            level="INFO",
+            vehicle_id=vehicle.id,
+            payments_created=lease_payments_created
         )
 
     fuel_entries = list(vehicle.fuel_entries.all())
@@ -389,35 +545,53 @@ def vehicle_detail(request, pk):
     from datetime import date
 
     vehicle_stats = None
-    if vehicle.purchased_date:
-        # Calculate days owned
+    # Calculate stats for both purchased and leased vehicles
+    start_date = vehicle.purchased_date or vehicle.lease_start_date
+    if start_date:
+        # Calculate days owned/leased
         end_date = vehicle.sold_date if vehicle.is_sold else date.today()
-        days_owned = (end_date - vehicle.purchased_date).days
+        days_owned = (end_date - start_date).days
         if days_owned == 0:
             days_owned = 1  # Prevent division by zero
 
         # Calculate miles driven
         miles_driven = 0
-        if vehicle.is_sold and vehicle.sold_odometer and vehicle.purchased_odometer:
-            miles_driven = vehicle.sold_odometer - vehicle.purchased_odometer
-        elif not vehicle.is_sold and vehicle.purchased_odometer:
+        start_odometer = vehicle.purchased_odometer
+
+        if vehicle.is_sold and vehicle.sold_odometer:
+            if start_odometer:
+                miles_driven = vehicle.sold_odometer - start_odometer
+            else:
+                # For leases without start odometer, just use sold odometer
+                miles_driven = vehicle.sold_odometer
+        elif start_odometer:
             # Get latest odometer reading from fuel or maintenance entries
             latest_fuel = vehicle.fuel_entries.order_by('-odometer').first()
             latest_maintenance = vehicle.maintenance_entries.order_by('-odometer').first()
 
-            latest_odometer = vehicle.purchased_odometer
+            latest_odometer = start_odometer
             if latest_fuel and latest_fuel.odometer > latest_odometer:
                 latest_odometer = latest_fuel.odometer
             if latest_maintenance and latest_maintenance.odometer > latest_odometer:
                 latest_odometer = latest_maintenance.odometer
 
-            miles_driven = latest_odometer - vehicle.purchased_odometer
+            miles_driven = latest_odometer - start_odometer
+        else:
+            # No start odometer - use latest odometer reading as miles driven
+            latest_fuel = vehicle.fuel_entries.order_by('-odometer').first()
+            latest_maintenance = vehicle.maintenance_entries.order_by('-odometer').first()
+
+            if latest_fuel:
+                miles_driven = latest_fuel.odometer
+            if latest_maintenance and latest_maintenance.odometer > miles_driven:
+                miles_driven = latest_maintenance.odometer
 
         # Calculate total costs by category
         total_fuel = vehicle.fuel_entries.aggregate(total=Sum('cost'))['total'] or 0
         total_maintenance = vehicle.maintenance_entries.aggregate(total=Sum('cost'))['total'] or 0
         total_insurance = vehicle.other_expenses.filter(expense_type='insurance').aggregate(total=Sum('cost'))['total'] or 0
         total_registration = vehicle.other_expenses.filter(expense_type='registration').aggregate(total=Sum('cost'))['total'] or 0
+        total_vehicle_payments = vehicle.other_expenses.filter(expense_type='vehicle_payment').aggregate(total=Sum('cost'))['total'] or 0
 
         # Maintenance breakdown by category
         maintenance_breakdown = {}
@@ -425,8 +599,8 @@ def vehicle_detail(request, pk):
             total = vehicle.maintenance_entries.filter(category=category_code).aggregate(total=Sum('cost'))['total'] or 0
             maintenance_breakdown[category_code] = total
 
-        # Vehicle cost (depreciation + interest)
-        vehicle_cost = (cost_info['cost_with_interest'] if cost_info else 0)
+        # Vehicle cost = depreciation + interest + all vehicle payments (down payment, loan payments, lease payments)
+        vehicle_cost = (cost_info['cost_with_interest'] if cost_info else 0) + float(total_vehicle_payments)
 
         # Total cost (all expenses)
         total_cost = vehicle_cost + float(total_fuel) + float(total_maintenance) + float(total_insurance) + float(total_registration)
@@ -484,7 +658,18 @@ def vehicle_edit(request, pk):
     if request.method == 'POST':
         form = VehicleForm(request.POST, instance=vehicle)
         if form.is_valid():
-            form.save()
+            vehicle = form.save()
+
+            # Record down payment if provided and not already recorded
+            if record_down_payment(vehicle):
+                log_event(
+                    request=request,
+                    event="Down payment recorded",
+                    level="INFO",
+                    vehicle_id=vehicle.id,
+                    amount=float(vehicle.down_payment)
+                )
+
             log_event(
                 request=request,
                 event="Vehicle updated",
@@ -1142,12 +1327,16 @@ def vehicle_images(request, vehicle_pk):
         image_count=images.count()
     )
     
+    current_count = images.count()
+    max_images = settings.MAX_VEHICLE_IMAGES
+
     return render(request, "autolog/vehicle_images.html", {
         'vehicle': vehicle,
         'images': images,
         'form': form,
-        'max_images': settings.MAX_VEHICLE_IMAGES,
-        'current_count': images.count(),
+        'max_images': max_images,
+        'current_count': current_count,
+        'remaining_count': max_images - current_count,
     })
 
 

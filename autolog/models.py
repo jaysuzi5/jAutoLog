@@ -33,13 +33,29 @@ class Vehicle(models.Model):
     current_value_date = models.DateField(null=True, blank=True, help_text="Date of current value estimate")
     fuel_type = models.CharField(max_length=10, choices=FUEL_CHOICES, default='gasoline')
 
-    # Loan information
+    # Financing information
+    FINANCING_CHOICES = [
+        ('none', 'None'),
+        ('loan', 'Loan'),
+        ('lease', 'Lease'),
+    ]
+    financing_type = models.CharField(max_length=10, choices=FINANCING_CHOICES, default='none')
+    down_payment = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Down payment amount")
+
+    # Loan-specific fields
     loan_start_date = models.DateField(null=True, blank=True)
-    loan_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    loan_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Amount financed (after down payment)")
     loan_interest_rate = models.DecimalField(max_digits=5, decimal_places=3, null=True, blank=True, help_text="Annual interest rate as percentage (e.g., 5.75 for 5.75%)")
     loan_term_months = models.PositiveIntegerField(null=True, blank=True, help_text="Total number of months for the loan")
     loan_payment_day = models.PositiveIntegerField(null=True, blank=True, help_text="Day of month payment is due (1-31)")
     loan_auto_payment = models.BooleanField(default=False, help_text="Automatically generate monthly payment entries")
+
+    # Lease-specific fields
+    lease_start_date = models.DateField(null=True, blank=True)
+    lease_payment_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Monthly lease payment amount")
+    lease_term_months = models.PositiveIntegerField(null=True, blank=True, help_text="Total number of months for the lease")
+    lease_payment_day = models.PositiveIntegerField(null=True, blank=True, help_text="Day of month payment is due (1-31)")
+    lease_auto_payment = models.BooleanField(default=False, help_text="Automatically generate monthly payment entries")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -73,8 +89,11 @@ class Vehicle(models.Model):
         return round(monthly_payment, 2)
 
     def get_loan_payments_made(self):
-        """Get count of loan payments made"""
-        return self.other_expenses.filter(expense_type='loan').count()
+        """Get count of loan payments made (vehicle payments with loan notes)"""
+        return self.other_expenses.filter(
+            expense_type='vehicle_payment',
+            notes__icontains='loan payment'
+        ).count()
 
     def get_loan_payments_remaining(self):
         """Calculate remaining loan payments"""
@@ -82,6 +101,20 @@ class Vehicle(models.Model):
             return None
         payments_made = self.get_loan_payments_made()
         return max(0, self.loan_term_months - payments_made)
+
+    def get_lease_payments_made(self):
+        """Get count of lease payments made (vehicle payments with lease notes)"""
+        return self.other_expenses.filter(
+            expense_type='vehicle_payment',
+            notes__icontains='lease payment'
+        ).count()
+
+    def get_lease_payments_remaining(self):
+        """Calculate remaining lease payments"""
+        if not self.lease_term_months:
+            return None
+        payments_made = self.get_lease_payments_made()
+        return max(0, self.lease_term_months - payments_made)
 
     def get_total_loan_interest(self):
         """Calculate expected total interest over life of loan"""
@@ -243,7 +276,7 @@ class OtherExpense(models.Model):
     EXPENSE_TYPE_CHOICES = [
         ('insurance', 'Insurance'),
         ('registration', 'Registration'),
-        ('loan', 'Loan Payment'),
+        ('vehicle_payment', 'Vehicle Payment'),
     ]
 
     # Relationships
@@ -271,6 +304,14 @@ class OtherExpense(models.Model):
         return f"{self.vehicle} - {self.get_expense_type_display()} - {self.date}"
 
 
+def vehicle_image_upload_path(instance, filename):
+    """
+    Generate hierarchical upload path for vehicle images.
+    Returns: vehicles/user_{user_id}/vehicle_{vehicle_id}/{filename}
+    """
+    return f'vehicles/user_{instance.vehicle.user.id}/vehicle_{instance.vehicle.id}/{filename}'
+
+
 class VehicleImage(models.Model):
     """Model for storing vehicle images with automatic resizing"""
     vehicle = models.ForeignKey(
@@ -278,7 +319,7 @@ class VehicleImage(models.Model):
         on_delete=models.CASCADE,
         related_name='images'
     )
-    image = models.ImageField(upload_to='vehicles/')
+    image = models.ImageField(upload_to=vehicle_image_upload_path)
     caption = models.CharField(max_length=200, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     is_primary = models.BooleanField(default=False, help_text="Primary image shown first")
