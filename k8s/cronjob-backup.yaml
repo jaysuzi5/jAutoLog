@@ -1,0 +1,208 @@
+---
+# Local backup CronJob - runs every 6 hours
+# Keeps 7 days of local backups on NAS
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jautolog-postgres-backup-local
+  labels:
+    app: jautolog
+    component: backup
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: jautolog
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: backup
+            image: postgres:14-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              # Configuration
+              BACKUP_DIR="/backups"
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="${BACKUP_DIR}/jautolog_${TIMESTAMP}.sql.gz"
+              RETENTION_DAYS=7
+
+              echo "Starting PostgreSQL backup at $(date)"
+              echo "Backup file: ${BACKUP_FILE}"
+
+              # Create backup directory if it doesn't exist
+              mkdir -p ${BACKUP_DIR}
+
+              # Perform backup with compression
+              PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
+                -h postgres-service \
+                -U "${POSTGRES_USER}" \
+                -d "${POSTGRES_DB}" \
+                --verbose \
+                --format=custom \
+                --compress=9 \
+                > "${BACKUP_FILE}"
+
+              # Verify backup was created and has size > 0
+              if [ -s "${BACKUP_FILE}" ]; then
+                BACKUP_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+                echo "Backup completed successfully: ${BACKUP_FILE} (${BACKUP_SIZE})"
+              else
+                echo "ERROR: Backup file is empty or not created!"
+                exit 1
+              fi
+
+              # Clean up old backups (older than RETENTION_DAYS)
+              echo "Cleaning up backups older than ${RETENTION_DAYS} days..."
+              find ${BACKUP_DIR} -name "jautolog_*.sql.gz" -type f -mtime +${RETENTION_DAYS} -delete
+
+              # List remaining backups
+              echo "Current backups:"
+              ls -lah ${BACKUP_DIR}/jautolog_*.sql.gz 2>/dev/null || echo "No backups found"
+
+              echo "Backup job completed at $(date)"
+            env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: jautolog-config
+                  key: DATABASE_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: password
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: postgres-backup-pvc
+
+---
+# Cloud backup CronJob - runs daily at 2 AM
+# Uploads to S3-compatible storage (AWS S3, Backblaze B2, MinIO, etc.)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup-cloud
+  labels:
+    app: jautolog
+    component: backup
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: jautolog
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: backup-cloud
+            image: amazon/aws-cli:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              # Configuration
+              BACKUP_DIR="/backups"
+              TIMESTAMP=$(date +%Y%m%d)
+              CLOUD_RETENTION_DAYS=30
+
+              echo "Starting cloud backup upload at $(date)"
+
+              # Find the most recent local backup
+              LATEST_BACKUP=$(ls -t ${BACKUP_DIR}/jautolog_*.sql.gz 2>/dev/null | head -1)
+
+              if [ -z "${LATEST_BACKUP}" ]; then
+                echo "ERROR: No local backup found to upload!"
+                exit 1
+              fi
+
+              echo "Uploading: ${LATEST_BACKUP}"
+              BACKUP_SIZE=$(du -h "${LATEST_BACKUP}" | cut -f1)
+              echo "Backup size: ${BACKUP_SIZE}"
+
+              # Upload to S3 with date-based path
+              S3_PATH="s3://${S3_BUCKET}/jautolog/backups/$(date +%Y/%m)/$(basename ${LATEST_BACKUP})"
+
+              aws s3 cp "${LATEST_BACKUP}" "${S3_PATH}" \
+                --storage-class STANDARD_IA
+
+              echo "Uploaded to: ${S3_PATH}"
+
+              # Clean up old cloud backups (optional - uses lifecycle policies instead)
+              # aws s3 ls "s3://${S3_BUCKET}/jautolog/backups/" --recursive | \
+              #   awk '{print $4}' | while read file; do ... done
+
+              echo "Cloud backup completed at $(date)"
+
+              # List recent cloud backups
+              echo "Recent cloud backups:"
+              aws s3 ls "s3://${S3_BUCKET}/jautolog/backups/" --recursive | tail -10
+            env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: AWS_STORAGE_BUCKET_NAME
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+              readOnly: true
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "250m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: postgres-backup-pvc

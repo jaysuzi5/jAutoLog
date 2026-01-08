@@ -313,3 +313,45 @@ Update __call__ to call the new method
         return response
 ```
 
+
+### Backup
+There will be two levels of backup: On to the local NAS and daily to S3.  There will be a generic S3 bucket and user for the S3 connectivity, however the secrets will need to be added to the secrets in the current namespace.
+
+1. Seal the secrets:
+1.1 temp.yaml for the secret in the format:
+```bash
+apiVersion: v1
+data:
+  password: <base64-encoded-password>
+  username: <base64-encoded-username>
+  AWS_ACCESS_KEY_ID: <base64-encoded-username>
+  AWS_SECRET_ACCESS_KEY: <base64-encoded-username>
+  AWS_STORAGE_BUCKET_NAME: <base64-encoded-username> 
+kind: Secret
+metadata:
+  creationTimestamp: "2026-01-01T14:20:41Z"
+  name: jautolog
+  namespace: jautolog
+type: Opaque
+```
+
+
+1.2 encoded the values with:
+```bash
+echo -n "<actual value>" | base64 
+```
+
+1.3 Then sealed the secret with:
+```bash
+kubeseal -f temp.yaml -o yaml > secrets.yaml  
+```
+
+1.4 Apply the secret with:
+```bash
+k apply -f secrets.yaml  
+```
+
+2. Create and apply the backup-pvc.yaml
+
+3. Create and apply the cronjob-backup.yaml
+
