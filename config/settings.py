@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
+    "storages",
 ]
 
 MIDDLEWARE = [
@@ -133,10 +134,6 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Media files (User uploads)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
 # File upload settings
 DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB (for multiple large images)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB
@@ -144,6 +141,39 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB
 # Vehicle Image Settings
 MAX_VEHICLE_IMAGES = 20  # Maximum number of images per vehicle
 MAX_IMAGE_RESOLUTION = 1920  # Maximum width/height in pixels
+
+# Media files (User uploads)
+# Use S3 for media storage, with environment-specific folders
+USE_S3_MEDIA = env.bool('USE_S3_MEDIA', default=False)
+
+if USE_S3_MEDIA:
+    # S3 Storage Configuration
+    AWS_ACCESS_KEY_ID = env('AWS_MEDIA_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = env('AWS_MEDIA_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = env('AWS_MEDIA_BUCKET_NAME', default='jautolog-media')
+    AWS_S3_REGION_NAME = env('AWS_DEFAULT_REGION', default='us-east-1')
+
+    # Environment-based folder prefix (test/ or production/)
+    ENVIRONMENT = env('DJANGO_ENV', default='development')
+    AWS_LOCATION = f'{ENVIRONMENT}/' if ENVIRONMENT in ['test', 'production'] else 'development/'
+
+    # S3 Settings
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    AWS_DEFAULT_ACL = 'private'
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_QUERYSTRING_AUTH = True  # Generate signed URLs for private files
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+
+    # Use S3 for media files
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}'
+else:
+    # Use local storage for development
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 SITE_ID = 1
 

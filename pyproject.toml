@@ -5,10 +5,12 @@ description = "Autolog Web Application"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "boto3>=1.42.24",
     "cryptography>=46.0.3",
     "django>=6.0",
     "django-allauth>=65.13.1",
     "django-environ>=0.12.0",
+    "django-storages>=1.14.6",
     "gunicorn>=20.1",
     "opentelemetry-distro>=0.60b1",
     "opentelemetry-exporter-otlp>=1.39b1",

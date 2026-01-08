@@ -73,6 +73,26 @@ spec:
                   name: jautolog
                   key: password
 
+            # S3 Media Storage
+            - name: USE_S3_MEDIA
+              value: "true"
+            - name: DJANGO_ENV
+              value: "production"  # Change to "test" for test environment
+            - name: AWS_MEDIA_BUCKET_NAME
+              value: "jautolog-media"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            - name: AWS_MEDIA_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: AWS_MEDIA_ACCESS_KEY_ID
+            - name: AWS_MEDIA_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: AWS_MEDIA_SECRET_ACCESS_KEY
+
             # OpenTelemetry
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://otel-collector-collector.monitoring.svc.cluster.local:4317"
