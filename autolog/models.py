@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
 from PIL import Image
-import os
+from io import BytesIO
 
 
 class Vehicle(models.Model):
@@ -331,12 +331,12 @@ class VehicleImage(models.Model):
         return f"{self.vehicle} - Image {self.id}"
 
     def save(self, *args, **kwargs):
-        """Override save to resize image if needed"""
+        """Override save to resize image if needed - works with local and S3 storage"""
         super().save(*args, **kwargs)
 
         if self.image:
-            img_path = self.image.path
-            img = Image.open(img_path)
+            # Open image from storage (works with both local and S3)
+            img = Image.open(self.image)
 
             # Get max resolution from settings
             max_size = settings.MAX_IMAGE_RESOLUTION
@@ -351,13 +351,24 @@ class VehicleImage(models.Model):
                     new_height = max_size
                     new_width = int((max_size / img.height) * img.width)
 
-                # Resize and save
+                # Resize image
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                img.save(img_path, optimize=True, quality=85)
+
+                # Save back to storage using BytesIO
+                output = BytesIO()
+
+                # Preserve format (JPEG, PNG, etc.)
+                img_format = img.format or 'JPEG'
+                img.save(output, format=img_format, optimize=True, quality=85)
+                output.seek(0)
+
+                # Save to storage backend (local or S3)
+                self.image.save(self.image.name, output, save=False)
+                super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        """Override delete to remove image file"""
+        """Override delete to remove image file - works with local and S3 storage"""
         if self.image:
-            if os.path.isfile(self.image.path):
-                os.remove(self.image.path)
+            # Delete file from storage backend (local or S3)
+            self.image.delete(save=False)
         super().delete(*args, **kwargs)
