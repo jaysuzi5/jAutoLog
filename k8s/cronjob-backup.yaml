@@ -35,7 +35,7 @@ spec:
               # Configuration
               BACKUP_DIR="/backups"
               TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-              BACKUP_FILE="${BACKUP_DIR}/jautolog_${TIMESTAMP}.sql.gz"
+              BACKUP_FILE="${BACKUP_DIR}/jautolog_${TIMESTAMP}.dump"
               RETENTION_DAYS=7
 
               echo "Starting PostgreSQL backup at $(date)"
@@ -65,11 +65,11 @@ spec:
 
               # Clean up old backups (older than RETENTION_DAYS)
               echo "Cleaning up backups older than ${RETENTION_DAYS} days..."
-              find ${BACKUP_DIR} -name "jautolog_*.sql.gz" -type f -mtime +${RETENTION_DAYS} -delete
+              find ${BACKUP_DIR} -name "jautolog_*.dump" -type f -mtime +${RETENTION_DAYS} -delete
 
               # List remaining backups
               echo "Current backups:"
-              ls -lah ${BACKUP_DIR}/jautolog_*.sql.gz 2>/dev/null || echo "No backups found"
+              ls -lah ${BACKUP_DIR}/jautolog_*.dump 2>/dev/null || echo "No backups found"
 
               echo "Backup job completed at $(date)"
             env:
@@ -101,7 +101,7 @@ spec:
           volumes:
           - name: backup-storage
             persistentVolumeClaim:
-              claimName: postgres-backup-pvc
+              claimName: jautolog-postgres-backup-pvc
 
 ---
 # Cloud backup CronJob - runs daily at 2 AM
@@ -145,7 +145,7 @@ spec:
               echo "Starting cloud backup upload at $(date)"
 
               # Find the most recent local backup
-              LATEST_BACKUP=$(ls -t ${BACKUP_DIR}/jautolog_*.sql.gz 2>/dev/null | head -1)
+              LATEST_BACKUP=$(ls -t ${BACKUP_DIR}/jautolog_*.dump 2>/dev/null | head -1)
 
               if [ -z "${LATEST_BACKUP}" ]; then
                 echo "ERROR: No local backup found to upload!"
