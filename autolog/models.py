@@ -332,10 +332,9 @@ class VehicleImage(models.Model):
 
     def save(self, *args, **kwargs):
         """Override save to resize image if needed - works with local and S3 storage"""
-        super().save(*args, **kwargs)
-
+        # Process image BEFORE saving to storage
         if self.image:
-            # Open image from storage (works with both local and S3)
+            # Open the uploaded image file
             img = Image.open(self.image)
 
             # Get max resolution from settings
@@ -354,7 +353,7 @@ class VehicleImage(models.Model):
                 # Resize image
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-                # Save back to storage using BytesIO
+                # Save resized image to BytesIO
                 output = BytesIO()
 
                 # Preserve format (JPEG, PNG, etc.)
@@ -362,9 +361,16 @@ class VehicleImage(models.Model):
                 img.save(output, format=img_format, optimize=True, quality=85)
                 output.seek(0)
 
-                # Save to storage backend (local or S3)
-                self.image.save(self.image.name, output, save=False)
-                super().save(*args, **kwargs)
+                # Replace the image field with resized version
+                from django.core.files import File
+                self.image.save(
+                    self.image.name,
+                    File(output),
+                    save=False
+                )
+
+        # Now save to storage (local or S3)
+        super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         """Override delete to remove image file - works with local and S3 storage"""
