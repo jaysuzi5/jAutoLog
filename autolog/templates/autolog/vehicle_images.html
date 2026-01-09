@@ -188,7 +188,7 @@
 const images = [
     {% for image in images %}
     {
-        url: "{{ image.image.url }}",
+        url: "{{ image.image.url|escapejs }}",
         caption: "{{ image.caption|escapejs }}",
         uploadedAt: "{{ image.uploaded_at|date:'M d, Y' }}",
         isPrimary: {% if image.is_primary %}true{% else %}false{% endif %}
