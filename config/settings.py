@@ -158,13 +158,15 @@ if USE_S3_MEDIA:
     AWS_LOCATION = f'{ENVIRONMENT}/' if ENVIRONMENT in ['test', 'production'] else 'development/'
 
     # S3 Settings
-    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+    # NOTE: Do NOT set AWS_S3_CUSTOM_DOMAIN when using private files with signed URLs
+    # Custom domain bypasses signed URL generation
     AWS_S3_OBJECT_PARAMETERS = {
         'CacheControl': 'max-age=86400',
     }
     AWS_DEFAULT_ACL = 'private'
     AWS_S3_FILE_OVERWRITE = False
     AWS_QUERYSTRING_AUTH = True  # Generate signed URLs for private files
+    AWS_QUERYSTRING_EXPIRE = 3600  # Signed URLs expire after 1 hour
     AWS_S3_SIGNATURE_VERSION = 's3v4'
 
     # Django 4.2+ storage configuration (STORAGES setting)
@@ -180,6 +182,7 @@ if USE_S3_MEDIA:
                 "default_acl": AWS_DEFAULT_ACL,
                 "file_overwrite": AWS_S3_FILE_OVERWRITE,
                 "querystring_auth": AWS_QUERYSTRING_AUTH,
+                "querystring_expire": AWS_QUERYSTRING_EXPIRE,
                 "signature_version": AWS_S3_SIGNATURE_VERSION,
                 "object_parameters": AWS_S3_OBJECT_PARAMETERS,
             },
@@ -188,8 +191,8 @@ if USE_S3_MEDIA:
             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
         },
     }
-    # Note: MEDIA_URL not used with signed URLs - each file generates its own URL
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}'
+    # MEDIA_URL not used with signed URLs - each file generates its own pre-signed URL
+    MEDIA_URL = '/media/'  # Placeholder, not actually used
 else:
     # Use local storage for development
     STORAGES = {
