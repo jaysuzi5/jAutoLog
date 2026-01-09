@@ -5,6 +5,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: jautolog-postgres-backup-local
+  namespace: jautolog
   labels:
     app: jautolog
     component: backup
@@ -25,7 +26,7 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: backup
-            image: postgres:14-alpine
+            image: postgres:17-alpine
             command:
             - /bin/sh
             - -c
@@ -46,7 +47,7 @@ spec:
 
               # Perform backup with compression
               PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
-                -h postgres-service \
+                -h postgresql-rw.postgresql.svc.cluster.local \
                 -U "${POSTGRES_USER}" \
                 -d "${POSTGRES_DB}" \
                 --verbose \
@@ -110,6 +111,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: postgres-backup-cloud
+  namespace: jautolog
   labels:
     app: jautolog
     component: backup

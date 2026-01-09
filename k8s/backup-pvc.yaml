@@ -2,6 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: jautolog-postgres-backup-pvc
+  namespace: jautolog
   labels:
     app: jautolog
     component: backup

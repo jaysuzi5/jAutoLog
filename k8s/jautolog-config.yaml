@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: jautolog-config
+  namespace: jautolog
   labels:
     app: jautolog
 data:
