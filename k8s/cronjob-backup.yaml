@@ -105,12 +105,12 @@ spec:
               claimName: jautolog-postgres-backup-pvc
 
 ---
-# Cloud backup CronJob - runs daily at 2 AM
-# Uploads to S3-compatible storage (AWS S3, Backblaze B2, MinIO, etc.)
+# Cloud backup CronJob - Daily - runs daily at 2 AM
+# Uploads to S3 daily folder
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: postgres-backup-cloud
+  name: postgres-backup-cloud-daily
   namespace: jautolog
   labels:
     app: jautolog
@@ -158,23 +158,119 @@ spec:
               BACKUP_SIZE=$(du -h "${LATEST_BACKUP}" | cut -f1)
               echo "Backup size: ${BACKUP_SIZE}"
 
-              # Upload to S3 with date-based path
-              S3_PATH="s3://${S3_BUCKET}/jautolog/backups/$(date +%Y/%m)/$(basename ${LATEST_BACKUP})"
+              # Upload to S3 daily folder with date-based path
+              S3_PATH="s3://${S3_BUCKET}/jautolog/backups/daily/$(date +%Y/%m/%d)/$(basename ${LATEST_BACKUP})"
 
               aws s3 cp "${LATEST_BACKUP}" "${S3_PATH}" \
                 --storage-class STANDARD_IA
 
               echo "Uploaded to: ${S3_PATH}"
 
-              # Clean up old cloud backups (optional - uses lifecycle policies instead)
-              # aws s3 ls "s3://${S3_BUCKET}/jautolog/backups/" --recursive | \
-              #   awk '{print $4}' | while read file; do ... done
+              echo "Daily cloud backup completed at $(date)"
 
-              echo "Cloud backup completed at $(date)"
+              # List recent daily backups
+              echo "Recent daily backups:"
+              aws s3 ls "s3://${S3_BUCKET}/jautolog/backups/daily/" --recursive | tail -10
+            env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: jautolog
+                  key: AWS_STORAGE_BUCKET_NAME
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+              readOnly: true
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "250m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: jautolog-postgres-backup-pvc
 
-              # List recent cloud backups
-              echo "Recent cloud backups:"
-              aws s3 ls "s3://${S3_BUCKET}/jautolog/backups/" --recursive | tail -10
+---
+# Cloud backup CronJob - Monthly - runs 1st of each month at 3 AM
+# Uploads to S3 monthly folder for long-term retention
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup-cloud-monthly
+  namespace: jautolog
+  labels:
+    app: jautolog
+    component: backup
+spec:
+  schedule: "0 3 1 * *"  # 1st of each month at 3 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: jautolog
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: backup-cloud-monthly
+            image: amazon/aws-cli:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              # Configuration
+              BACKUP_DIR="/backups"
+              TIMESTAMP=$(date +%Y%m%d)
+
+              echo "Starting monthly cloud backup upload at $(date)"
+
+              # Find the most recent local backup
+              LATEST_BACKUP=$(ls -t ${BACKUP_DIR}/jautolog_*.dump 2>/dev/null | head -1)
+
+              if [ -z "${LATEST_BACKUP}" ]; then
+                echo "ERROR: No local backup found to upload!"
+                exit 1
+              fi
+
+              echo "Uploading: ${LATEST_BACKUP}"
+              BACKUP_SIZE=$(du -h "${LATEST_BACKUP}" | cut -f1)
+              echo "Backup size: ${BACKUP_SIZE}"
+
+              # Upload to S3 monthly folder with year/month path
+              S3_PATH="s3://${S3_BUCKET}/jautolog/backups/monthly/$(date +%Y/%m)/$(basename ${LATEST_BACKUP})"
+
+              aws s3 cp "${LATEST_BACKUP}" "${S3_PATH}" \
+                --storage-class STANDARD_IA
+
+              echo "Uploaded to: ${S3_PATH}"
+
+              echo "Monthly cloud backup completed at $(date)"
+
+              # List monthly backups
+              echo "Monthly backups:"
+              aws s3 ls "s3://${S3_BUCKET}/jautolog/backups/monthly/" --recursive | tail -10
             env:
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
