@@ -207,4 +207,4 @@ spec:
           volumes:
           - name: backup-storage
             persistentVolumeClaim:
-              claimName: postgres-backup-pvc
+              claimName: jautolog-postgres-backup-pvc
