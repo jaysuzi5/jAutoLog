@@ -1,0 +1,156 @@
+---
+# Database Restore Job
+# This job downloads a backup from S3 and restores it to PostgreSQL
+# Usage: Update the S3_BACKUP_PATH environment variable before applying
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-restore
+  namespace: jautolog
+  labels:
+    app: jautolog
+    component: restore
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: jautolog
+        component: restore
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: restore
+        image: postgres:17-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+
+          echo "=========================================="
+          echo "PostgreSQL Database Restore"
+          echo "=========================================="
+          echo "Starting restore at $(date)"
+          echo
+
+          # Install AWS CLI
+          echo "Installing AWS CLI..."
+          apk add --no-cache aws-cli
+          echo
+
+          # Configuration
+          BACKUP_DIR="/tmp/restore"
+          mkdir -p ${BACKUP_DIR}
+
+          echo "Configuration:"
+          echo "  S3 Bucket: ${S3_BUCKET}"
+          echo "  S3 Path: ${S3_BACKUP_PATH}"
+          echo "  PostgreSQL Host: ${POSTGRES_HOST}"
+          echo "  PostgreSQL Database: ${POSTGRES_DB}"
+          echo "  PostgreSQL User: ${POSTGRES_USER}"
+          echo
+
+          # Download backup from S3
+          echo "Downloading backup from S3..."
+          S3_FULL_PATH="s3://${S3_BUCKET}/${S3_BACKUP_PATH}"
+          LOCAL_BACKUP="${BACKUP_DIR}/restore.dump"
+
+          aws s3 cp "${S3_FULL_PATH}" "${LOCAL_BACKUP}"
+
+          if [ ! -f "${LOCAL_BACKUP}" ]; then
+            echo "ERROR: Failed to download backup from S3!"
+            exit 1
+          fi
+
+          BACKUP_SIZE=$(du -h "${LOCAL_BACKUP}" | cut -f1)
+          echo "Backup downloaded successfully: ${BACKUP_SIZE}"
+          echo
+
+          # Restore the database
+          echo "Starting database restore..."
+          echo "WARNING: This will drop existing tables and recreate them!"
+          echo
+
+          PGPASSWORD="${POSTGRES_PASSWORD}" pg_restore \
+            -h "${POSTGRES_HOST}" \
+            -U "${POSTGRES_USER}" \
+            -d "${POSTGRES_DB}" \
+            --verbose \
+            --clean \
+            --if-exists \
+            --no-owner \
+            --no-acl \
+            "${LOCAL_BACKUP}" 2>&1 | tee /tmp/restore.log
+
+          # Check if restore was successful
+          if [ $? -eq 0 ]; then
+            echo
+            echo "=========================================="
+            echo "Database restore completed successfully!"
+            echo "=========================================="
+            echo "Completed at $(date)"
+          else
+            echo
+            echo "=========================================="
+            echo "WARNING: Restore completed with errors"
+            echo "=========================================="
+            echo "Check the logs above for details"
+            echo "Some errors are normal (e.g., objects that don't exist)"
+          fi
+
+          # Clean up
+          rm -f "${LOCAL_BACKUP}"
+
+        env:
+        # PostgreSQL connection settings
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: jautolog-config
+              key: DATABASE_NAME
+        - name: POSTGRES_HOST
+          value: "postgresql-rw.postgresql.svc.cluster.local"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: jautolog
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: jautolog
+              key: password
+
+        # AWS S3 settings
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: jautolog
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jautolog
+              key: AWS_SECRET_ACCESS_KEY
+        - name: S3_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: jautolog
+              key: AWS_STORAGE_BUCKET_NAME
+        - name: AWS_DEFAULT_REGION
+          value: "us-east-1"
+
+        # IMPORTANT: Update this path to the backup you want to restore
+        # Format: jautolog/backups/daily/YYYY/MM/DD/filename.dump
+        #     or: jautolog/backups/monthly/YYYY/MM/filename.dump
+        - name: S3_BACKUP_PATH
+          value: "jautolog/backups/daily/2026/01/10/jautolog_20260110_120000.dump"
+
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
