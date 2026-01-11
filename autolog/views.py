@@ -761,17 +761,6 @@ def fuel_entry_create(request, vehicle_pk):
     """Create a new fuel entry for a vehicle"""
     vehicle = get_object_or_404(Vehicle, pk=vehicle_pk, user=request.user)
 
-    # Prevent adding fuel to sold vehicles
-    if vehicle.is_sold:
-        log_event(
-            request=request,
-            event="Attempted to add fuel entry to sold vehicle",
-            level="WARNING",
-            vehicle_id=vehicle.id,
-            vehicle=str(vehicle)
-        )
-        return redirect('vehicle_detail', pk=vehicle.pk)
-
     # Determine which form to use based on fuel type
     is_electric = vehicle.fuel_type == 'electric'
     FormClass = ElectricFuelForm if is_electric else GasolineFuelForm
