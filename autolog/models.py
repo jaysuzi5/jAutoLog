@@ -163,6 +163,59 @@ class Vehicle(models.Model):
 
         return round(total_interest_paid, 2)
 
+    def get_depreciation(self):
+        """
+        Calculate vehicle depreciation.
+
+        Returns:
+            float: Depreciation amount (purchase_price - current/sold value)
+            None: If no purchase price available
+        """
+        if not self.purchased_price:
+            return None
+
+        if self.is_sold and self.sold_price:
+            # Sold vehicle: depreciation = purchase price - sold price
+            return float(self.purchased_price) - float(self.sold_price)
+        elif not self.is_sold and self.current_value:
+            # Unsold vehicle with current value: depreciation = purchase price - current value
+            return float(self.purchased_price) - float(self.current_value)
+        else:
+            # No current/sold value - assume full depreciation
+            return float(self.purchased_price)
+
+    def get_vehicle_cost(self):
+        """
+        Calculate total vehicle cost: depreciation + all vehicle payments made.
+
+        This represents the true out-of-pocket cost for the vehicle, including:
+        - Depreciation (purchase price minus current/sold value)
+        - All vehicle payments made (down payment, loan payments, lease payments)
+
+        Note: Interest is NOT double-counted. The interest is already included
+        in the loan payments that have been made, so we don't add it separately.
+
+        Returns:
+            float: Total vehicle cost
+            0: If no data available
+        """
+        from django.db.models import Sum
+
+        # Get depreciation
+        depreciation = self.get_depreciation() or 0
+
+        # Get total vehicle payments (includes down payment, loan payments, lease payments)
+        # The interest is already included in these payment amounts
+        total_vehicle_payments = self.other_expenses.filter(
+            expense_type='vehicle_payment'
+        ).aggregate(total=Sum('cost'))['total'] or 0
+
+        # Vehicle cost = depreciation + payments made
+        # We do NOT add interest separately because it's already in the payments
+        vehicle_cost = depreciation + float(total_vehicle_payments)
+
+        return round(vehicle_cost, 2)
+
 
 class FuelEntry(models.Model):
     # Relationships

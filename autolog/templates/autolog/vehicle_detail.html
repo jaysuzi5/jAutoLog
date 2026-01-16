@@ -80,6 +80,9 @@
                 <a href="{% url 'vehicle_edit' vehicle.pk %}" class="btn btn-sm btn-primary">
                     <i class="bi bi-pencil"></i><span class="d-none d-md-inline ms-1">Edit</span>
                 </a>
+                <a href="{% url 'vehicle_delete' vehicle.pk %}" class="btn btn-sm btn-danger">
+                    <i class="bi bi-trash"></i><span class="d-none d-md-inline ms-1">Delete</span>
+                </a>
             </div>
         </div>
     </div>

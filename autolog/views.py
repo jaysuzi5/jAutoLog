@@ -302,22 +302,9 @@ def vehicle_comparison(request):
         total_maintenance = vehicle.maintenance_entries.aggregate(total=Sum('cost'))['total'] or 0
         total_insurance = vehicle.other_expenses.filter(expense_type='insurance').aggregate(total=Sum('cost'))['total'] or 0
         total_registration = vehicle.other_expenses.filter(expense_type='registration').aggregate(total=Sum('cost'))['total'] or 0
-        total_vehicle_payments = vehicle.other_expenses.filter(expense_type='vehicle_payment').aggregate(total=Sum('cost'))['total'] or 0
 
-        # Vehicle cost calculation
-        if vehicle.purchased_price:
-            if vehicle.is_sold and vehicle.sold_price:
-                cost = float(vehicle.purchased_price) - float(vehicle.sold_price)
-            elif not vehicle.is_sold and vehicle.current_value:
-                cost = float(vehicle.purchased_price) - float(vehicle.current_value)
-            else:
-                cost = float(vehicle.purchased_price)
-        else:
-            cost = 0
-
-        interest_paid = vehicle.get_interest_paid_to_date() or 0
-        # Vehicle cost = depreciation + interest + all vehicle payments (down payment, loan payments, lease payments)
-        vehicle_cost = cost + float(interest_paid) + float(total_vehicle_payments)
+        # Get vehicle cost (depreciation + all payments made)
+        vehicle_cost = vehicle.get_vehicle_cost()
 
         total_cost = vehicle_cost + float(total_fuel) + float(total_maintenance) + float(total_insurance) + float(total_registration)
 
@@ -326,8 +313,11 @@ def vehicle_comparison(request):
         vehicle_cost_per_day = vehicle_cost / days_owned if days_owned > 0 else 0
         cost_per_mile = total_cost / miles_driven if miles_driven > 0 else 0
 
-        # Average MPG
-        avg_mpg = vehicle.fuel_entries.aggregate(avg=Avg('mpg'))['avg'] or 0
+        # Average MPG (or MPGe for electric vehicles)
+        if vehicle.fuel_type == 'electric':
+            avg_mpg = vehicle.fuel_entries.aggregate(avg=Avg('mpge'))['avg'] or 0
+        else:
+            avg_mpg = vehicle.fuel_entries.aggregate(avg=Avg('mpg'))['avg'] or 0
 
         vehicle_stats_list.append({
             'vehicle': vehicle,
@@ -517,28 +507,17 @@ def vehicle_detail(request, pk):
         vehicle_id=vehicle.id,
         vehicle=str(vehicle)
     )
-    # Calculate cost and cost with interest
+    # Calculate depreciation and interest for display purposes
     cost_info = None
-    if vehicle.purchased_price:
-        if vehicle.is_sold and vehicle.sold_price:
-            # For sold vehicles: cost = purchase price - sold price
-            cost = float(vehicle.purchased_price) - float(vehicle.sold_price)
-        elif not vehicle.is_sold and vehicle.current_value:
-            # For unsold vehicles: cost = purchase price - current value
-            cost = float(vehicle.purchased_price) - float(vehicle.current_value)
-        else:
-            cost = None
+    depreciation = vehicle.get_depreciation()
+    if depreciation is not None:
+        interest_paid = vehicle.get_interest_paid_to_date() or 0
 
-        if cost is not None:
-            # Calculate cost with interest
-            interest_paid = vehicle.get_interest_paid_to_date() or 0
-            cost_with_interest = cost + float(interest_paid)
-
-            cost_info = {
-                'cost': round(cost, 2),
-                'cost_with_interest': round(cost_with_interest, 2),
-                'interest_paid': interest_paid,
-            }
+        cost_info = {
+            'cost': round(depreciation, 2),
+            'cost_with_interest': round(depreciation + float(interest_paid), 2),
+            'interest_paid': interest_paid,
+        }
 
     # Calculate comprehensive vehicle statistics
     from django.db.models import Sum, Avg
@@ -599,8 +578,8 @@ def vehicle_detail(request, pk):
             total = vehicle.maintenance_entries.filter(category=category_code).aggregate(total=Sum('cost'))['total'] or 0
             maintenance_breakdown[category_code] = total
 
-        # Vehicle cost = depreciation + interest + all vehicle payments (down payment, loan payments, lease payments)
-        vehicle_cost = (cost_info['cost_with_interest'] if cost_info else 0) + float(total_vehicle_payments)
+        # Get vehicle cost (depreciation + all payments made)
+        vehicle_cost = vehicle.get_vehicle_cost()
 
         # Total cost (all expenses)
         total_cost = vehicle_cost + float(total_fuel) + float(total_maintenance) + float(total_insurance) + float(total_registration)
@@ -610,8 +589,11 @@ def vehicle_detail(request, pk):
         vehicle_cost_per_day = vehicle_cost / days_owned if days_owned > 0 else 0
         cost_per_mile = total_cost / miles_driven if miles_driven > 0 else 0
 
-        # Average MPG
-        avg_mpg = vehicle.fuel_entries.aggregate(avg=Avg('mpg'))['avg'] or 0
+        # Average MPG (or MPGe for electric vehicles)
+        if vehicle.fuel_type == 'electric':
+            avg_mpg = vehicle.fuel_entries.aggregate(avg=Avg('mpge'))['avg'] or 0
+        else:
+            avg_mpg = vehicle.fuel_entries.aggregate(avg=Avg('mpg'))['avg'] or 0
 
         vehicle_stats = {
             'days_owned': days_owned,
@@ -690,6 +672,35 @@ def vehicle_edit(request, pk):
     return render(request, "autolog/vehicle_form.html", {
         'form': form,
         'action': 'Edit',
+        'vehicle': vehicle,
+    })
+
+
+@login_required
+def vehicle_delete(request, pk):
+    """Delete a vehicle"""
+    vehicle = get_object_or_404(Vehicle, pk=pk, user=request.user)
+
+    if request.method == 'POST':
+        log_event(
+            request=request,
+            event="Vehicle deleted",
+            level="INFO",
+            vehicle_id=vehicle.id,
+            vehicle=str(vehicle)
+        )
+        vehicle.delete()
+        messages.success(request, f'Vehicle "{vehicle}" has been deleted successfully.')
+        return redirect('vehicle_list')
+
+    log_event(
+        request=request,
+        event="Vehicle delete confirmation accessed",
+        level="DEBUG",
+        vehicle_id=vehicle.id
+    )
+
+    return render(request, 'autolog/vehicle_confirm_delete.html', {
         'vehicle': vehicle,
     })
 
