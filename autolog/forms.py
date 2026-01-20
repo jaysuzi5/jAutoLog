@@ -12,7 +12,7 @@ class VehicleForm(forms.ModelForm):
             'sold_date', 'sold_price', 'sold_odometer', 'current_value', 'current_value_date',
             'financing_type', 'down_payment',
             'loan_start_date', 'loan_amount', 'loan_interest_rate', 'loan_term_months',
-            'loan_payment_day', 'loan_auto_payment',
+            'loan_monthly_payment_override', 'loan_payment_day', 'loan_auto_payment',
             'lease_start_date', 'lease_payment_amount', 'lease_term_months',
             'lease_payment_day', 'lease_auto_payment',
         ]
@@ -46,6 +46,7 @@ class VehicleForm(forms.ModelForm):
             'loan_amount': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Amount Financed', 'step': '0.01'}),
             'loan_interest_rate': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g., 5.75', 'step': '0.001'}),
             'loan_term_months': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Number of months'}),
+            'loan_monthly_payment_override': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Override calculated payment', 'step': '0.01'}),
             'loan_payment_day': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Day of month (1-31)', 'min': '1', 'max': '31'}),
             'loan_auto_payment': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'lease_start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),

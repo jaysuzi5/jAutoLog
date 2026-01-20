@@ -22,10 +22,19 @@ def conversion(request):
 @login_required
 def vehicle_import(request):
     if request.method == 'POST':
+        # Check if file was uploaded
+        json_file = request.FILES.get('json_file')
         json_text = request.POST.get('json_data', '').strip()
 
-        if not json_text:
-            messages.error(request, 'Please provide JSON data.')
+        if json_file:
+            # Read from uploaded file
+            try:
+                json_text = json_file.read().decode('utf-8')
+            except Exception as e:
+                messages.error(request, f'Error reading file: {e}')
+                return render(request, "conversion/vehicle_import.html")
+        elif not json_text:
+            messages.error(request, 'Please upload a file or provide JSON data.')
             return render(request, "conversion/vehicle_import.html")
 
         try:
@@ -38,37 +47,109 @@ def vehicle_import(request):
                 level="WARNING",
                 error=str(e)
             )
-            return render(request, "conversion/vehicle_import.html", {'json_data': json_text})
+            # Don't populate text box if file was uploaded (confusing to user)
+            return render(request, "conversion/vehicle_import.html", {
+                'json_data': json_text if not json_file else ''
+            })
 
-        # Handle both single object and array
-        if isinstance(data, dict):
+        # Handle different import formats
+        # Format 1: Export format with "vehicles" array: {"exportDate": "...", "vehicles": [...]}
+        # Format 2: Array of vehicles: [{"year": 2023, ...}, ...]
+        # Format 3: Single vehicle object: {"year": 2023, ...}
+
+        if isinstance(data, dict) and 'vehicles' in data:
+            # Export format
+            vehicles_data = data['vehicles']
+        elif isinstance(data, dict):
+            # Single vehicle object
             vehicles_data = [data]
         elif isinstance(data, list):
+            # Array of vehicles
             vehicles_data = data
         else:
             messages.error(request, 'JSON must be an object or array of objects.')
-            return render(request, "conversion/vehicle_import.html", {'json_data': json_text})
+            # Don't populate text box if file was uploaded (confusing to user)
+            return render(request, "conversion/vehicle_import.html", {
+                'json_data': json_text if not json_file else ''
+            })
 
         created_count = 0
+        fuel_count = 0
+        maintenance_count = 0
+        expense_count = 0
         errors = []
 
         for idx, vehicle_data in enumerate(vehicles_data):
             try:
+                # Import vehicle
                 vehicle = create_vehicle_from_json(vehicle_data, request.user)
                 vehicle.save()
                 created_count += 1
+
+                # Import fuel entries if present
+                if 'fuelEntries' in vehicle_data and vehicle_data['fuelEntries']:
+                    for fuel_data in vehicle_data['fuelEntries']:
+                        try:
+                            fuel_entry = create_fuel_entry_from_json(fuel_data, vehicle)
+                            fuel_entry.save()
+                            fuel_count += 1
+                        except Exception as e:
+                            errors.append(f"Vehicle {idx + 1} - Fuel entry error: {e}")
+
+                # Import maintenance entries if present
+                if 'maintenanceEntries' in vehicle_data and vehicle_data['maintenanceEntries']:
+                    for maint_data in vehicle_data['maintenanceEntries']:
+                        try:
+                            # Extract category from data
+                            category = maint_data.get('category')
+                            if not category:
+                                raise ValueError("Missing category in maintenance entry")
+                            maint_entry = create_maintenance_entry_from_json(maint_data, vehicle, category)
+                            maint_entry.save()
+                            maintenance_count += 1
+                        except Exception as e:
+                            errors.append(f"Vehicle {idx + 1} - Maintenance entry error: {e}")
+
+                # Import other expenses if present
+                if 'otherExpenses' in vehicle_data and vehicle_data['otherExpenses']:
+                    for expense_data in vehicle_data['otherExpenses']:
+                        try:
+                            # Extract expense type from data
+                            expense_type = expense_data.get('expenseType')
+                            if not expense_type:
+                                raise ValueError("Missing expenseType in expense entry")
+                            expense = create_other_expense_from_json(expense_data, vehicle, expense_type)
+                            expense.save()
+                            expense_count += 1
+                        except Exception as e:
+                            errors.append(f"Vehicle {idx + 1} - Expense error: {e}")
+
             except ValueError as e:
                 errors.append(f"Vehicle {idx + 1}: {e}")
             except Exception as e:
                 errors.append(f"Vehicle {idx + 1}: Unexpected error - {e}")
 
+        # Build success message
+        success_parts = []
         if created_count > 0:
-            messages.success(request, f'Successfully imported {created_count} vehicle(s).')
+            success_parts.append(f'{created_count} vehicle(s)')
+        if fuel_count > 0:
+            success_parts.append(f'{fuel_count} fuel entry(ies)')
+        if maintenance_count > 0:
+            success_parts.append(f'{maintenance_count} maintenance entry(ies)')
+        if expense_count > 0:
+            success_parts.append(f'{expense_count} expense(s)')
+
+        if success_parts:
+            messages.success(request, f'Successfully imported: {", ".join(success_parts)}.')
             log_event(
                 request=request,
-                event="Vehicles imported",
+                event="Data imported",
                 level="INFO",
-                count=created_count
+                vehicles=created_count,
+                fuel_entries=fuel_count,
+                maintenance_entries=maintenance_count,
+                expenses=expense_count
             )
 
         if errors:
@@ -76,15 +157,19 @@ def vehicle_import(request):
                 messages.error(request, error)
             log_event(
                 request=request,
-                event="Vehicle import had errors",
+                event="Import had errors",
                 level="WARNING",
                 error_count=len(errors)
             )
 
-        if created_count > 0 and not errors:
+        # Always redirect to vehicle list if any vehicles were created to prevent re-import
+        if created_count > 0:
             return redirect('vehicle_list')
 
-        return render(request, "conversion/vehicle_import.html", {'json_data': json_text})
+        # Only show the form again with data if nothing was imported and it was text input
+        return render(request, "conversion/vehicle_import.html", {
+            'json_data': json_text if not json_file else ''
+        })
 
     log_event(
         request=request,
@@ -114,7 +199,11 @@ def create_vehicle_from_json(data, user):
         'soldDate': 'sold_date',
         'soldPrice': 'sold_price',
         'soldOdometer': 'sold_odometer',
+        'currentValue': 'current_value',
+        'currentValueDate': 'current_value_date',
         'fuelType': 'fuel_type',
+        'financingType': 'financing_type',
+        'downPayment': 'down_payment',
     }
 
     # Valid fuel types
@@ -135,7 +224,7 @@ def create_vehicle_from_json(data, user):
             value = data[json_key]
 
             # Handle date fields
-            if model_key in ('purchased_date', 'sold_date'):
+            if model_key in ('purchased_date', 'sold_date', 'current_value_date'):
                 if isinstance(value, str):
                     try:
                         value = datetime.strptime(value, '%Y-%m-%d').date()
@@ -143,7 +232,7 @@ def create_vehicle_from_json(data, user):
                         raise ValueError(f"Invalid date format for {json_key}: {value}. Use YYYY-MM-DD.")
 
             # Handle decimal fields
-            elif model_key in ('purchased_price', 'sold_price'):
+            elif model_key in ('purchased_price', 'sold_price', 'current_value', 'down_payment'):
                 try:
                     value = Decimal(str(value))
                 except (InvalidOperation, ValueError):
@@ -163,6 +252,75 @@ def create_vehicle_from_json(data, user):
                     raise ValueError(f"Invalid fuel type: {value}. Must be one of: {', '.join(valid_fuel_types)}")
 
             vehicle_data[model_key] = value
+
+    # Handle loan info if present
+    if 'loanInfo' in data and data['loanInfo']:
+        loan_info = data['loanInfo']
+        loan_mapping = {
+            'loanStartDate': 'loan_start_date',
+            'loanAmount': 'loan_amount',
+            'loanInterestRate': 'loan_interest_rate',
+            'loanTermMonths': 'loan_term_months',
+            'loanPaymentDay': 'loan_payment_day',
+            'loanAutoPayment': 'loan_auto_payment',
+        }
+
+        for json_key, model_key in loan_mapping.items():
+            if json_key in loan_info and loan_info[json_key] not in (None, ''):
+                value = loan_info[json_key]
+
+                # Handle date
+                if model_key == 'loan_start_date':
+                    if isinstance(value, str):
+                        value = datetime.strptime(value, '%Y-%m-%d').date()
+
+                # Handle decimal
+                elif model_key in ('loan_amount', 'loan_interest_rate'):
+                    value = Decimal(str(value))
+
+                # Handle integer
+                elif model_key in ('loan_term_months', 'loan_payment_day'):
+                    value = int(value)
+
+                # Handle boolean
+                elif model_key == 'loan_auto_payment':
+                    value = bool(value)
+
+                vehicle_data[model_key] = value
+
+    # Handle lease info if present
+    if 'leaseInfo' in data and data['leaseInfo']:
+        lease_info = data['leaseInfo']
+        lease_mapping = {
+            'leaseStartDate': 'lease_start_date',
+            'leasePaymentAmount': 'lease_payment_amount',
+            'leaseTermMonths': 'lease_term_months',
+            'leasePaymentDay': 'lease_payment_day',
+            'leaseAutoPayment': 'lease_auto_payment',
+        }
+
+        for json_key, model_key in lease_mapping.items():
+            if json_key in lease_info and lease_info[json_key] not in (None, ''):
+                value = lease_info[json_key]
+
+                # Handle date
+                if model_key == 'lease_start_date':
+                    if isinstance(value, str):
+                        value = datetime.strptime(value, '%Y-%m-%d').date()
+
+                # Handle decimal
+                elif model_key == 'lease_payment_amount':
+                    value = Decimal(str(value))
+
+                # Handle integer
+                elif model_key in ('lease_term_months', 'lease_payment_day'):
+                    value = int(value)
+
+                # Handle boolean
+                elif model_key == 'lease_auto_payment':
+                    value = bool(value)
+
+                vehicle_data[model_key] = value
 
     return Vehicle(**vehicle_data)
 

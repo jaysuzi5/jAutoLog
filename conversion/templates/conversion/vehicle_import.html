@@ -6,47 +6,76 @@
 <div class="container mt-4">
     <div class="page-header mb-4">
         <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
-            <h1 class="mb-0"><i class="bi bi-upload me-2"></i>Import Vehicles</h1>
-            <a href="{% url 'conversion' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Back to Conversion
+            <div>
+                <h1 class="mb-1"><i class="bi bi-upload me-2"></i>Import Data</h1>
+                <p class="text-muted mb-0">Import vehicles with fuel, maintenance, and expense data</p>
+            </div>
+            <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Home
             </a>
         </div>
     </div>
 
     <div class="row">
         <div class="col-lg-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-code-square me-2"></i>JSON Data</h5>
+            <div class="card mb-3">
+                <div class="card-header bg-primary bg-opacity-10">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-arrow-up me-2"></i>Upload JSON File</h5>
                 </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" enctype="multipart/form-data" id="fileUploadForm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="json_file" class="form-label">
+                                Select a JSON file exported from jAutoLog:
+                            </label>
+                            <input
+                                type="file"
+                                name="json_file"
+                                id="json_file"
+                                class="form-control"
+                                accept=".json,application/json"
+                                onchange="handleFileSelect()">
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Upload a JSON file exported using the "Export Data" feature
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload me-1"></i>Import from File
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="text-center my-3">
+                <span class="badge bg-secondary">OR</span>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-code-square me-2"></i>Paste JSON Data</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="textForm">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="json_data" class="form-label">
-                                Paste your vehicle JSON data below (single object or array of objects):
+                                Paste your JSON data below:
                             </label>
                             <textarea
                                 name="json_data"
                                 id="json_data"
                                 class="form-control font-monospace"
                                 rows="15"
-                                placeholder='[
-  {
-    "year": 2020,
-    "make": "Toyota",
-    "model": "Camry",
-    "color": "Silver",
-    "fuelType": "Gasoline"
-  }
-]'>{{ json_data }}</textarea>
+                                placeholder='See example format on the right →'>{{ json_data }}</textarea>
                         </div>
                         <div class="d-flex flex-column-reverse flex-sm-row justify-content-between gap-2">
                             <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
                                 <i class="bi bi-x-lg me-1"></i>Clear
                             </button>
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-upload me-1"></i>Import Vehicles
+                                <i class="bi bi-upload me-1"></i>Import from Text
                             </button>
                         </div>
                     </form>
@@ -57,58 +86,141 @@
         <div class="col-lg-4 mt-4 mt-lg-0">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>JSON Format</h5>
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Import Formats</h5>
                 </div>
                 <div class="card-body">
-                    <p class="small text-muted">Required fields are marked with *</p>
-                    <table class="table table-sm small">
-                        <thead>
-                            <tr>
-                                <th>Field</th>
-                                <th>Type</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td>year *</td><td>number</td></tr>
-                            <tr><td>make *</td><td>string</td></tr>
-                            <tr><td>model *</td><td>string</td></tr>
-                            <tr><td>color</td><td>string</td></tr>
-                            <tr><td>vinNumber</td><td>string</td></tr>
-                            <tr><td>licensePlateNumber</td><td>string</td></tr>
-                            <tr><td>registrationNumber</td><td>string</td></tr>
-                            <tr><td>state</td><td>string (2 char)</td></tr>
-                            <tr><td>purchasedDate</td><td>YYYY-MM-DD</td></tr>
-                            <tr><td>purchasedPrice</td><td>number</td></tr>
-                            <tr><td>purchasedOdometer</td><td>number</td></tr>
-                            <tr><td>dealerName</td><td>string</td></tr>
-                            <tr><td>soldDate</td><td>YYYY-MM-DD</td></tr>
-                            <tr><td>soldPrice</td><td>number</td></tr>
-                            <tr><td>soldOdometer</td><td>number</td></tr>
-                            <tr><td>fuelType</td><td>Gasoline, Diesel, Electric, Hybrid</td></tr>
-                        </tbody>
-                    </table>
+                    <h6 class="text-primary">Comprehensive Format (Recommended)</h6>
+                    <p class="small mb-2">Import vehicles with all related data:</p>
+                    <ul class="small">
+                        <li>Vehicle information</li>
+                        <li>Fuel entries (gas/electric)</li>
+                        <li>Maintenance records</li>
+                        <li>Other expenses</li>
+                        <li>Loan/lease information</li>
+                    </ul>
+                    <p class="small text-muted mb-3">
+                        <i class="bi bi-lightbulb me-1"></i>
+                        Use "Export Data" to create this format
+                    </p>
+
+                    <h6 class="text-primary">Simple Format</h6>
+                    <p class="small mb-0">Import just vehicle information without entries</p>
                 </div>
             </div>
 
             <div class="card mt-3">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-file-earmark-code me-2"></i>Example</h5>
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-code me-2"></i>Example Structure</h5>
                 </div>
                 <div class="card-body">
-                    <pre class="bg-light p-2 rounded small mb-0"><code>{
+                    <p class="small mb-2"><strong>Comprehensive Format:</strong></p>
+                    <pre class="bg-light p-2 rounded small mb-3" style="font-size: 0.7rem;"><code>{
+  "exportDate": "2026-01-19",
+  "vehicles": [
+    {
+      "year": 2023,
+      "make": "Toyota",
+      "model": "Camry",
+      "fuelType": "gasoline",
+      "purchasedDate": "2023-01-15",
+      "purchasedPrice": "30000.00",
+      "fuelEntries": [
+        {
+          "date": "2023-02-01",
+          "odometer": 1000,
+          "gallons": "12.5",
+          "cost": "45.00"
+        }
+      ],
+      "maintenanceEntries": [
+        {
+          "date": "2023-03-01",
+          "odometer": 3000,
+          "category": "oil",
+          "cost": "50.00",
+          "notes": "Oil change"
+        }
+      ],
+      "otherExpenses": [
+        {
+          "date": "2023-01-20",
+          "expenseType": "insurance",
+          "cost": "150.00"
+        }
+      ]
+    }
+  ]
+}</code></pre>
+
+                    <p class="small mb-2"><strong>Simple Format:</strong></p>
+                    <pre class="bg-light p-2 rounded small mb-0" style="font-size: 0.7rem;"><code>{
   "year": 2020,
   "make": "Honda",
   "model": "Accord",
-  "color": "Blue",
-  "vinNumber": "1HGCV1F3XLA000001",
-  "licensePlateNumber": "ABC1234",
-  "state": "CA",
-  "purchasedDate": "2020-06-15",
-  "purchasedPrice": 28000.00,
-  "purchasedOdometer": 15,
-  "dealerName": "Honda Dealer",
-  "fuelType": "Gasoline"
+  "fuelType": "gasoline"
 }</code></pre>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Supported Fields</h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion accordion-flush" id="fieldsAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed small" type="button" data-bs-toggle="collapse" data-bs-target="#vehicleFields">
+                                    Vehicle Fields
+                                </button>
+                            </h2>
+                            <div id="vehicleFields" class="accordion-collapse collapse" data-bs-parent="#fieldsAccordion">
+                                <div class="accordion-body small">
+                                    <p class="mb-1"><strong>Required:</strong> year, make, model</p>
+                                    <p class="mb-0"><strong>Optional:</strong> color, vinNumber, licensePlateNumber, state, purchasedDate, purchasedPrice, purchasedOdometer, soldDate, soldPrice, soldOdometer, currentValue, fuelType, financingType, downPayment</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed small" type="button" data-bs-toggle="collapse" data-bs-target="#fuelFields">
+                                    Fuel Entry Fields
+                                </button>
+                            </h2>
+                            <div id="fuelFields" class="accordion-collapse collapse" data-bs-parent="#fieldsAccordion">
+                                <div class="accordion-body small">
+                                    <p class="mb-1"><strong>Gas:</strong> date, odometer, gallons, cost</p>
+                                    <p class="mb-0"><strong>Electric:</strong> date, odometer, kwhPerMile, costPerKwh, costPerGallonReference</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed small" type="button" data-bs-toggle="collapse" data-bs-target="#maintFields">
+                                    Maintenance Fields
+                                </button>
+                            </h2>
+                            <div id="maintFields" class="accordion-collapse collapse" data-bs-parent="#fieldsAccordion">
+                                <div class="accordion-body small">
+                                    <p class="mb-0"><strong>Required:</strong> date, odometer, category, cost</p>
+                                    <p class="mb-0"><strong>Categories:</strong> oil, repairs, tires, wash, accessories</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed small" type="button" data-bs-toggle="collapse" data-bs-target="#expenseFields">
+                                    Expense Fields
+                                </button>
+                            </h2>
+                            <div id="expenseFields" class="accordion-collapse collapse" data-bs-parent="#fieldsAccordion">
+                                <div class="accordion-body small">
+                                    <p class="mb-0"><strong>Required:</strong> date, expenseType, cost</p>
+                                    <p class="mb-0"><strong>Types:</strong> insurance, registration, vehicle_payment</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -118,6 +230,16 @@
 <script>
 function clearForm() {
     document.getElementById('json_data').value = '';
+}
+
+function handleFileSelect() {
+    const fileInput = document.getElementById('json_file');
+    const file = fileInput.files[0];
+    if (file) {
+        // Show file name
+        const fileName = file.name;
+        console.log('Selected file:', fileName);
+    }
 }
 </script>
 {% endblock %}

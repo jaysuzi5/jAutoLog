@@ -29,8 +29,16 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'vehicle_comparison' %}"><i class="bi bi-bar-chart me-1"></i>Compare</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'vehicle_import' %}"><i class="bi bi-upload me-1"></i>Import</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                            <i class="bi bi-shield-check me-1"></i>Backup
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'export_all_data' %}"><i class="bi bi-download me-2"></i>Export to File</a></li>
+                            <li><a class="dropdown-item" href="{% url 'export_images' %}"><i class="bi bi-images me-2"></i>Export Images</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'vehicle_import' %}"><i class="bi bi-upload me-2"></i>Restore from File</a></li>
+                        </ul>
                     </li>
                 </ul>
                 {% if user.is_authenticated %}

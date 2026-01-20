@@ -59,7 +59,7 @@ def generate_loan_payments(vehicle):
     ]):
         return 0
 
-    monthly_payment = vehicle.calculate_monthly_payment()
+    monthly_payment = vehicle.get_monthly_payment()
     if not monthly_payment:
         return 0
 
@@ -615,7 +615,7 @@ def vehicle_detail(request, pk):
     loan_info = None
     if vehicle.loan_start_date:
         loan_info = {
-            'monthly_payment': vehicle.calculate_monthly_payment(),
+            'monthly_payment': vehicle.get_monthly_payment(),
             'payments_made': vehicle.get_loan_payments_made(),
             'payments_remaining': vehicle.get_loan_payments_remaining(),
             'total_interest': vehicle.get_total_loan_interest(),
@@ -1414,5 +1414,210 @@ def vehicle_image_update_caption(request, pk):
         )
         
         return redirect('vehicle_images', vehicle_pk=vehicle.pk)
-    
+
     return redirect('vehicle_images', vehicle_pk=vehicle.pk)
+
+
+@login_required
+def export_all_data(request):
+    """Export all vehicles and related data to JSON"""
+    import json
+    from django.http import JsonResponse, HttpResponse
+    from decimal import Decimal
+
+    vehicles = Vehicle.objects.filter(user=request.user).prefetch_related(
+        'fuel_entries',
+        'maintenance_entries',
+        'other_expenses'
+    )
+
+    def serialize_date(d):
+        """Convert date to string format"""
+        return d.strftime('%Y-%m-%d') if d else None
+
+    def serialize_decimal(d):
+        """Convert Decimal to string"""
+        return str(d) if d else None
+
+    export_data = {
+        'exportDate': serialize_date(date.today()),
+        'vehicles': []
+    }
+
+    for vehicle in vehicles:
+        vehicle_data = {
+            'year': vehicle.year,
+            'make': vehicle.make,
+            'model': vehicle.model,
+            'color': vehicle.color or None,
+            'vinNumber': vehicle.vin_number or None,
+            'licensePlateNumber': vehicle.license_plate_number or None,
+            'registrationNumber': vehicle.registration_number or None,
+            'state': vehicle.state or None,
+            'purchasedDate': serialize_date(vehicle.purchased_date),
+            'purchasedPrice': serialize_decimal(vehicle.purchased_price),
+            'purchasedOdometer': vehicle.purchased_odometer,
+            'dealerName': vehicle.dealer_name or None,
+            'soldDate': serialize_date(vehicle.sold_date),
+            'soldPrice': serialize_decimal(vehicle.sold_price),
+            'soldOdometer': vehicle.sold_odometer,
+            'currentValue': serialize_decimal(vehicle.current_value),
+            'currentValueDate': serialize_date(vehicle.current_value_date),
+            'fuelType': vehicle.fuel_type,
+            'financingType': vehicle.financing_type,
+            'downPayment': serialize_decimal(vehicle.down_payment),
+            'fuelEntries': [],
+            'maintenanceEntries': [],
+            'otherExpenses': []
+        }
+
+        # Add loan information if applicable
+        if vehicle.financing_type == 'loan' and vehicle.loan_start_date:
+            vehicle_data['loanInfo'] = {
+                'loanStartDate': serialize_date(vehicle.loan_start_date),
+                'loanAmount': serialize_decimal(vehicle.loan_amount),
+                'loanInterestRate': serialize_decimal(vehicle.loan_interest_rate),
+                'loanTermMonths': vehicle.loan_term_months,
+                'loanPaymentDay': vehicle.loan_payment_day,
+                'loanAutoPayment': vehicle.loan_auto_payment
+            }
+
+        # Add lease information if applicable
+        if vehicle.financing_type == 'lease' and vehicle.lease_start_date:
+            vehicle_data['leaseInfo'] = {
+                'leaseStartDate': serialize_date(vehicle.lease_start_date),
+                'leasePaymentAmount': serialize_decimal(vehicle.lease_payment_amount),
+                'leaseTermMonths': vehicle.lease_term_months,
+                'leasePaymentDay': vehicle.lease_payment_day,
+                'leaseAutoPayment': vehicle.lease_auto_payment
+            }
+
+        # Export fuel entries
+        for fuel_entry in vehicle.fuel_entries.all():
+            if vehicle.fuel_type == 'electric':
+                fuel_data = {
+                    'date': serialize_date(fuel_entry.date),
+                    'odometer': fuel_entry.odometer,
+                    'kwhPerMile': serialize_decimal(fuel_entry.kwh_per_mile),
+                    'costPerKwh': serialize_decimal(fuel_entry.cost_per_kwh),
+                    'costPerGallonReference': serialize_decimal(fuel_entry.cost_per_gallon_reference)
+                }
+            else:
+                fuel_data = {
+                    'date': serialize_date(fuel_entry.date),
+                    'odometer': fuel_entry.odometer,
+                    'gallons': serialize_decimal(fuel_entry.gallons),
+                    'cost': serialize_decimal(fuel_entry.cost)
+                }
+            vehicle_data['fuelEntries'].append(fuel_data)
+
+        # Export maintenance entries
+        for maint_entry in vehicle.maintenance_entries.all():
+            maint_data = {
+                'date': serialize_date(maint_entry.date),
+                'odometer': maint_entry.odometer,
+                'category': maint_entry.category,
+                'cost': serialize_decimal(maint_entry.cost),
+                'notes': maint_entry.notes or None
+            }
+            vehicle_data['maintenanceEntries'].append(maint_data)
+
+        # Export other expenses
+        for expense in vehicle.other_expenses.all():
+            expense_data = {
+                'date': serialize_date(expense.date),
+                'expenseType': expense.expense_type,
+                'cost': serialize_decimal(expense.cost),
+                'notes': expense.notes or None
+            }
+            vehicle_data['otherExpenses'].append(expense_data)
+
+        export_data['vehicles'].append(vehicle_data)
+
+    # Create JSON response with file download
+    response = HttpResponse(
+        json.dumps(export_data, indent=2),
+        content_type='application/json'
+    )
+    filename = f'jautolog_export_{date.today().strftime("%Y%m%d")}.json'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    log_event(
+        request=request,
+        event="Data exported",
+        level="INFO",
+        vehicle_count=len(export_data['vehicles'])
+    )
+
+    return response
+
+
+@login_required
+def export_images(request):
+    """Export all vehicle images as a ZIP file"""
+    import zipfile
+    from io import BytesIO
+    from django.http import HttpResponse
+
+    # Get all vehicles for the user
+    vehicles = Vehicle.objects.filter(user=request.user).prefetch_related('images')
+
+    # Create ZIP file in memory
+    zip_buffer = BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        image_count = 0
+
+        for vehicle in vehicles:
+            # Create folder name for this vehicle
+            vehicle_folder = f"{vehicle.year}_{vehicle.make}_{vehicle.model}".replace(' ', '_')
+
+            for idx, image in enumerate(vehicle.images.all(), 1):
+                try:
+                    # Read image file from storage (works with both S3 and local)
+                    image_file = image.image.open('rb')
+                    image_data = image_file.read()
+                    image_file.close()
+
+                    # Get file extension
+                    file_ext = image.image.name.split('.')[-1] if '.' in image.image.name else 'jpg'
+
+                    # Create filename with vehicle info
+                    if image.caption:
+                        # Sanitize caption for filename
+                        safe_caption = "".join(c for c in image.caption if c.isalnum() or c in (' ', '-', '_')).strip()
+                        filename = f"{vehicle_folder}/{idx:02d}_{safe_caption[:50]}.{file_ext}"
+                    else:
+                        filename = f"{vehicle_folder}/{idx:02d}_image.{file_ext}"
+
+                    # Add to ZIP
+                    zip_file.writestr(filename, image_data)
+                    image_count += 1
+
+                except Exception as e:
+                    # Log error but continue with other images
+                    log_event(
+                        request=request,
+                        event="Failed to export image",
+                        level="WARNING",
+                        vehicle_id=vehicle.id,
+                        image_id=image.id,
+                        error=str(e)
+                    )
+                    continue
+
+    # Prepare response
+    zip_buffer.seek(0)
+    response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+    filename = f'jautolog_images_{date.today().strftime("%Y%m%d")}.zip'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    log_event(
+        request=request,
+        event="Images exported",
+        level="INFO",
+        image_count=image_count,
+        vehicle_count=vehicles.count()
+    )
+
+    return response

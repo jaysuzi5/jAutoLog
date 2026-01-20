@@ -250,6 +250,27 @@
                                         </div>
                                     </div>
                                     <div class="row mb-3 align-items-center">
+                                        <label class="col-5 col-form-label">Calculated Payment</label>
+                                        <div class="col-7">
+                                            <div class="form-control bg-light" id="calculated-payment">
+                                                {% if vehicle.calculate_monthly_payment %}
+                                                    ${{ vehicle.calculate_monthly_payment|floatformat:2 }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </div>
+                                            <small class="text-muted">Auto-calculated based on loan details</small>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <label for="{{ form.loan_monthly_payment_override.id_for_label }}" class="col-5 col-form-label">Override Payment</label>
+                                        <div class="col-7">
+                                            {{ form.loan_monthly_payment_override }}
+                                            {% if form.loan_monthly_payment_override.errors %}<div class="text-danger small">{{ form.loan_monthly_payment_override.errors.0 }}</div>{% endif %}
+                                            <small class="text-muted">Optional: Override calculated amount</small>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
                                         <label for="{{ form.loan_payment_day.id_for_label }}" class="col-5 col-form-label">Payment Day</label>
                                         <div class="col-7">
                                             {{ form.loan_payment_day }}
@@ -354,6 +375,47 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Toggle when financing type changes
     financingTypeSelect.addEventListener('change', toggleFinancingFields);
+
+    // Calculate and update monthly payment
+    const loanAmountInput = document.getElementById('{{ form.loan_amount.id_for_label }}');
+    const loanInterestRateInput = document.getElementById('{{ form.loan_interest_rate.id_for_label }}');
+    const loanTermMonthsInput = document.getElementById('{{ form.loan_term_months.id_for_label }}');
+    const calculatedPaymentDiv = document.getElementById('calculated-payment');
+
+    function calculateMonthlyPayment() {
+        const principal = parseFloat(loanAmountInput.value);
+        const annualRate = parseFloat(loanInterestRateInput.value);
+        const termMonths = parseInt(loanTermMonthsInput.value);
+
+        if (!principal || !annualRate || !termMonths) {
+            calculatedPaymentDiv.textContent = '-';
+            return;
+        }
+
+        const monthlyRate = (annualRate / 100) / 12;
+
+        let monthlyPayment;
+        if (monthlyRate === 0) {
+            // No interest loan
+            monthlyPayment = principal / termMonths;
+        } else {
+            // Amortization formula: M = P * [r(1+r)^n] / [(1+r)^n - 1]
+            monthlyPayment = principal * (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+                           (Math.pow(1 + monthlyRate, termMonths) - 1);
+        }
+
+        calculatedPaymentDiv.textContent = '$' + monthlyPayment.toFixed(2);
+    }
+
+    // Calculate on input change
+    if (loanAmountInput && loanInterestRateInput && loanTermMonthsInput) {
+        loanAmountInput.addEventListener('input', calculateMonthlyPayment);
+        loanInterestRateInput.addEventListener('input', calculateMonthlyPayment);
+        loanTermMonthsInput.addEventListener('input', calculateMonthlyPayment);
+
+        // Calculate on page load if editing existing vehicle
+        calculateMonthlyPayment();
+    }
 });
 </script>
 {% endblock %}

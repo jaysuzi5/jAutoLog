@@ -43,7 +43,7 @@
                     <h5 class="mb-0"><i class="bi bi-upload me-2"></i>Upload Images</h5>
                 </div>
                 <div class="card-body">
-                    <form method="post" enctype="multipart/form-data">
+                    <form method="post" enctype="multipart/form-data" id="uploadForm">
                         {% csrf_token %}
                         <div class="mb-3">
                             <input type="file" name="images" accept="image/*" multiple class="form-control" id="id_images">
@@ -56,8 +56,10 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary" {% if current_count >= max_images %}disabled{% endif %}>
-                            <i class="bi bi-upload me-1"></i>Upload Images
+                        <button type="submit" class="btn btn-primary" id="uploadButton" {% if current_count >= max_images %}disabled{% endif %}>
+                            <i class="bi bi-upload me-1" id="uploadIcon"></i>
+                            <span class="spinner-border spinner-border-sm me-1 d-none" id="uploadSpinner" role="status" aria-hidden="true"></span>
+                            <span id="uploadButtonText">Upload Images</span>
                         </button>
                         {% if current_count >= max_images %}
                         <p class="text-danger mt-2 mb-0">
@@ -184,6 +186,39 @@
 </div>
 
 <script>
+// Handle image upload form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadButton = document.getElementById('uploadButton');
+    const uploadIcon = document.getElementById('uploadIcon');
+    const uploadSpinner = document.getElementById('uploadSpinner');
+    const uploadButtonText = document.getElementById('uploadButtonText');
+    const fileInput = document.getElementById('id_images');
+
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+            // Check if files are selected
+            if (!fileInput.files || fileInput.files.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one image to upload.');
+                return false;
+            }
+
+            // Show spinner and disable button
+            uploadIcon.classList.add('d-none');
+            uploadSpinner.classList.remove('d-none');
+            uploadButtonText.textContent = 'Uploading...';
+            uploadButton.disabled = true;
+
+            // Prevent multiple submissions
+            uploadForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                return false;
+            });
+        });
+    }
+});
+
 // Image data for viewer
 const images = [
     {% for image in images %}

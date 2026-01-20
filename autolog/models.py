@@ -47,6 +47,7 @@ class Vehicle(models.Model):
     loan_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Amount financed (after down payment)")
     loan_interest_rate = models.DecimalField(max_digits=5, decimal_places=3, null=True, blank=True, help_text="Annual interest rate as percentage (e.g., 5.75 for 5.75%)")
     loan_term_months = models.PositiveIntegerField(null=True, blank=True, help_text="Total number of months for the loan")
+    loan_monthly_payment_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Override calculated monthly payment (leave blank to use calculated amount)")
     loan_payment_day = models.PositiveIntegerField(null=True, blank=True, help_text="Day of month payment is due (1-31)")
     loan_auto_payment = models.BooleanField(default=False, help_text="Automatically generate monthly payment entries")
 
@@ -88,6 +89,15 @@ class Vehicle(models.Model):
         monthly_payment = principal * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
         return round(monthly_payment, 2)
 
+    def get_monthly_payment(self):
+        """
+        Get the effective monthly payment amount.
+        Returns the override if set, otherwise returns the calculated amount.
+        """
+        if self.loan_monthly_payment_override:
+            return float(self.loan_monthly_payment_override)
+        return self.calculate_monthly_payment()
+
     def get_loan_payments_made(self):
         """Get count of loan payments made (vehicle payments with loan notes)"""
         return self.other_expenses.filter(
@@ -118,7 +128,7 @@ class Vehicle(models.Model):
 
     def get_total_loan_interest(self):
         """Calculate expected total interest over life of loan"""
-        monthly_payment = self.calculate_monthly_payment()
+        monthly_payment = self.get_monthly_payment()
         if not monthly_payment or not self.loan_term_months or not self.loan_amount:
             return None
 
@@ -135,7 +145,7 @@ class Vehicle(models.Model):
         if payments_made == 0:
             return 0
 
-        monthly_payment = self.calculate_monthly_payment()
+        monthly_payment = self.get_monthly_payment()
         if not monthly_payment:
             return None
 
@@ -151,7 +161,7 @@ class Vehicle(models.Model):
         remaining_principal = principal
         total_interest_paid = 0
 
-        for payment_num in range(1, payments_made + 1):
+        for _ in range(1, payments_made + 1):
             # Interest portion of this payment
             interest_payment = remaining_principal * monthly_rate
             # Principal portion of this payment

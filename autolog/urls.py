@@ -4,7 +4,8 @@ from .views import (
     fuel_entry_list, fuel_entry_create, fuel_entry_detail, fuel_entry_edit, fuel_entry_delete,
     maintenance_entry_list, maintenance_entry_create, maintenance_entry_edit, maintenance_entry_delete,
     other_expense_list, other_expense_create, other_expense_edit, other_expense_delete,
-    vehicle_images, vehicle_image_delete, vehicle_image_set_primary, vehicle_image_update_caption
+    vehicle_images, vehicle_image_delete, vehicle_image_set_primary, vehicle_image_update_caption,
+    export_all_data, export_images
 )
 
 urlpatterns = [
@@ -15,6 +16,8 @@ urlpatterns = [
     path("vehicles/<int:pk>/", vehicle_detail, name="vehicle_detail"),
     path("vehicles/<int:pk>/edit/", vehicle_edit, name="vehicle_edit"),
     path("vehicles/<int:pk>/delete/", vehicle_delete, name="vehicle_delete"),
+    path("export/", export_all_data, name="export_all_data"),
+    path("export/images/", export_images, name="export_images"),
 
     # Fuel entry URLs
     path("vehicles/<int:vehicle_pk>/fuel/", fuel_entry_list, name="fuel_entry_list"),
