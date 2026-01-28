@@ -386,6 +386,204 @@ def vehicle_comparison(request):
 
 
 @login_required
+def lifetime_expense_report(request):
+    """Display lifetime expense report aggregated by year across all vehicles"""
+    from django.db.models import Sum
+    from django.db.models.functions import ExtractYear
+    import calendar
+
+    vehicles = Vehicle.objects.filter(user=request.user)
+
+    # Get sorting parameters
+    sort_by = request.GET.get('sort', 'year')
+    sort_dir = request.GET.get('dir', 'desc')
+
+    # Build a dictionary to hold year statistics
+    year_data = {}
+
+    # Calculate vehicle count per year (fractional based on days owned)
+    for vehicle in vehicles:
+        start_date = vehicle.purchased_date or vehicle.lease_start_date
+        if not start_date:
+            continue
+
+        end_date = vehicle.sold_date if vehicle.is_sold else date.today()
+
+        # Iterate through each year the vehicle was owned
+        current_year = start_date.year
+        end_year = end_date.year
+
+        while current_year <= end_year:
+            # Determine the start and end dates for this year
+            year_start = date(current_year, 1, 1)
+            year_end = date(current_year, 12, 31)
+
+            # Calculate overlap
+            overlap_start = max(start_date, year_start)
+            overlap_end = min(end_date, year_end)
+
+            # Calculate days owned in this year
+            days_in_year = (overlap_end - overlap_start).days + 1
+
+            # Calculate total days in this year (handle leap years)
+            total_days_in_year = 366 if calendar.isleap(current_year) else 365
+
+            # Calculate fractional vehicle count
+            vehicle_fraction = days_in_year / total_days_in_year
+
+            # Add to year data
+            if current_year not in year_data:
+                year_data[current_year] = {'year': current_year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+            year_data[current_year]['vehicle_count'] += vehicle_fraction
+
+            current_year += 1
+
+    # Aggregate fuel expenses by year
+    fuel_by_year = FuelEntry.objects.filter(
+        vehicle__user=request.user
+    ).annotate(
+        year=ExtractYear('date')
+    ).values('year').annotate(
+        total=Sum('cost')
+    )
+
+    for entry in fuel_by_year:
+        year = entry['year']
+        if year not in year_data:
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+        year_data[year]['fuel'] = float(entry['total'] or 0)
+
+    # Aggregate maintenance expenses by year (all categories combined)
+    maintenance_by_year = MaintenanceEntry.objects.filter(
+        vehicle__user=request.user
+    ).annotate(
+        year=ExtractYear('date')
+    ).values('year').annotate(
+        total=Sum('cost')
+    )
+
+    for entry in maintenance_by_year:
+        year = entry['year']
+        if year not in year_data:
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+        year_data[year]['maintenance'] = float(entry['total'] or 0)
+
+    # Aggregate insurance expenses by year
+    insurance_by_year = OtherExpense.objects.filter(
+        vehicle__user=request.user,
+        expense_type='insurance'
+    ).annotate(
+        year=ExtractYear('date')
+    ).values('year').annotate(
+        total=Sum('cost')
+    )
+
+    for entry in insurance_by_year:
+        year = entry['year']
+        if year not in year_data:
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+        year_data[year]['insurance'] = float(entry['total'] or 0)
+
+    # Aggregate registration expenses by year
+    registration_by_year = OtherExpense.objects.filter(
+        vehicle__user=request.user,
+        expense_type='registration'
+    ).annotate(
+        year=ExtractYear('date')
+    ).values('year').annotate(
+        total=Sum('cost')
+    )
+
+    for entry in registration_by_year:
+        year = entry['year']
+        if year not in year_data:
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+        year_data[year]['registration'] = float(entry['total'] or 0)
+
+    # Aggregate vehicle payments by year
+    payments_by_year = OtherExpense.objects.filter(
+        vehicle__user=request.user,
+        expense_type='vehicle_payment'
+    ).annotate(
+        year=ExtractYear('date')
+    ).values('year').annotate(
+        total=Sum('cost')
+    )
+
+    for entry in payments_by_year:
+        year = entry['year']
+        if year not in year_data:
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+        year_data[year]['vehicle_cost'] = float(entry['total'] or 0)
+
+    # Add depreciation to purchase year for each vehicle
+    for vehicle in vehicles:
+        depreciation = vehicle.get_depreciation()
+        if depreciation and vehicle.purchased_date:
+            purchase_year = vehicle.purchased_date.year
+            if purchase_year not in year_data:
+                year_data[purchase_year] = {'year': purchase_year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+            year_data[purchase_year]['vehicle_cost'] += float(depreciation)
+
+    # Convert to list and calculate totals
+    year_stats_list = []
+    for year, data in year_data.items():
+        total = data['fuel'] + data['maintenance'] + data['insurance'] + data['registration'] + data['vehicle_cost']
+        year_stats_list.append({
+            'year': year,
+            'vehicle_count': round(data['vehicle_count'], 1),
+            'fuel': round(data['fuel'], 2),
+            'maintenance': round(data['maintenance'], 2),
+            'insurance': round(data['insurance'], 2),
+            'registration': round(data['registration'], 2),
+            'vehicle_cost': round(data['vehicle_cost'], 2),
+            'total': round(total, 2)
+        })
+
+    # Sort the list
+    sort_key_map = {
+        'year': lambda x: x['year'],
+        'vehicle_count': lambda x: x['vehicle_count'],
+        'fuel': lambda x: x['fuel'],
+        'maintenance': lambda x: x['maintenance'],
+        'insurance': lambda x: x['insurance'],
+        'registration': lambda x: x['registration'],
+        'vehicle_cost': lambda x: x['vehicle_cost'],
+        'total': lambda x: x['total'],
+    }
+
+    if sort_by in sort_key_map:
+        reverse_sort = (sort_dir == 'desc')
+        year_stats_list.sort(key=sort_key_map[sort_by], reverse=reverse_sort)
+
+    # Calculate min/max for highlighting (exclude zeros)
+    min_max = {}
+    if year_stats_list:
+        stats_keys = ['vehicle_count', 'fuel', 'maintenance', 'insurance', 'registration', 'vehicle_cost', 'total']
+
+        for key in stats_keys:
+            values = [v[key] for v in year_stats_list if v[key] > 0]
+            if values:
+                min_max[f'{key}_min'] = min(values)
+                min_max[f'{key}_max'] = max(values)
+
+    log_event(
+        request=request,
+        event="Lifetime expense report viewed",
+        level="DEBUG",
+        year_count=len(year_stats_list),
+        sort_by=sort_by
+    )
+
+    return render(request, "autolog/lifetime_expense_report.html", {
+        'year_stats_list': year_stats_list,
+        'sort_by': sort_by,
+        'sort_dir': sort_dir,
+        'min_max': min_max,
+    })
+
+
+@login_required
 def vehicle_create(request):
     if request.method == 'POST':
         form = VehicleForm(request.POST)

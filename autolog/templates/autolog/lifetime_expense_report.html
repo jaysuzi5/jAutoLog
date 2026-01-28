@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Lifetime Expense Report - jAutoLog{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+            <h1 class="mb-0">
+                <i class="bi bi-calendar-range me-2"></i>Lifetime Expense Report
+            </h1>
+            <div class="d-flex gap-2">
+                <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if not year_stats_list %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        No expense data available. Add vehicles and expenses to see your lifetime report.
+    </div>
+    {% else %}
+
+    <!-- Mobile View: Column Selector and Table -->
+    <div class="d-md-none mb-4">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Select Column</h6>
+            </div>
+            <div class="card-body">
+                <select class="form-select" id="mobile-column-selector">
+                    <option value="year" {% if sort_by == 'year' %}selected{% endif %}>Year</option>
+                    <option value="vehicle_count" {% if sort_by == 'vehicle_count' %}selected{% endif %}>Vehicles</option>
+                    <option value="fuel" {% if sort_by == 'fuel' %}selected{% endif %}>Fuel</option>
+                    <option value="maintenance" {% if sort_by == 'maintenance' %}selected{% endif %}>Maintenance</option>
+                    <option value="insurance" {% if sort_by == 'insurance' %}selected{% endif %}>Insurance</option>
+                    <option value="registration" {% if sort_by == 'registration' %}selected{% endif %}>Registration</option>
+                    <option value="vehicle_cost" {% if sort_by == 'vehicle_cost' %}selected{% endif %}>Vehicle Cost</option>
+                    <option value="total" {% if sort_by == 'total' %}selected{% endif %}>Total</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Year</th>
+                            <th class="text-end">
+                                <a href="?sort={{ sort_by }}&dir={% if sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none" id="mobile-sort-link">
+                                    <span id="mobile-column-name">
+                                        {% if sort_by == 'year' %}Year
+                                        {% elif sort_by == 'vehicle_count' %}Vehicles
+                                        {% elif sort_by == 'fuel' %}Fuel
+                                        {% elif sort_by == 'maintenance' %}Maintenance
+                                        {% elif sort_by == 'insurance' %}Insurance
+                                        {% elif sort_by == 'registration' %}Registration
+                                        {% elif sort_by == 'vehicle_cost' %}Vehicle Cost
+                                        {% elif sort_by == 'total' %}Total
+                                        {% endif %}
+                                    </span>
+                                    {% if sort_dir == 'asc' %}
+                                    <i class="bi bi-arrow-up"></i>
+                                    {% else %}
+                                    <i class="bi bi-arrow-down"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stats in year_stats_list %}
+                        <tr>
+                            <td><strong>{{ stats.year }}</strong></td>
+                            <td class="text-end fw-bold mobile-stat-cell" data-stat="{{ sort_by }}">
+                                {% if sort_by == 'year' %}
+                                <span>{{ stats.year }}</span>
+                                {% elif sort_by == 'vehicle_count' %}
+                                <span class="{% if stats.vehicle_count == min_max.vehicle_count_min %}text-success{% elif stats.vehicle_count == min_max.vehicle_count_max %}text-danger{% endif %}">{{ stats.vehicle_count|floatformat:1 }}</span>
+                                {% elif sort_by == 'fuel' %}
+                                <span class="{% if stats.fuel == min_max.fuel_min %}text-success{% elif stats.fuel == min_max.fuel_max %}text-danger{% endif %}">${{ stats.fuel|floatformat:2|intcomma }}</span>
+                                {% elif sort_by == 'maintenance' %}
+                                <span class="{% if stats.maintenance == min_max.maintenance_min %}text-success{% elif stats.maintenance == min_max.maintenance_max %}text-danger{% endif %}">${{ stats.maintenance|floatformat:2|intcomma }}</span>
+                                {% elif sort_by == 'insurance' %}
+                                <span class="{% if stats.insurance == min_max.insurance_min %}text-success{% elif stats.insurance == min_max.insurance_max %}text-danger{% endif %}">${{ stats.insurance|floatformat:2|intcomma }}</span>
+                                {% elif sort_by == 'registration' %}
+                                <span class="{% if stats.registration == min_max.registration_min %}text-success{% elif stats.registration == min_max.registration_max %}text-danger{% endif %}">${{ stats.registration|floatformat:2|intcomma }}</span>
+                                {% elif sort_by == 'vehicle_cost' %}
+                                <span class="{% if stats.vehicle_cost == min_max.vehicle_cost_min %}text-success{% elif stats.vehicle_cost == min_max.vehicle_cost_max %}text-danger{% endif %}">${{ stats.vehicle_cost|floatformat:2|intcomma }}</span>
+                                {% elif sort_by == 'total' %}
+                                <span class="{% if stats.total == min_max.total_min %}text-success{% elif stats.total == min_max.total_max %}text-danger{% endif %}">${{ stats.total|floatformat:2|intcomma }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer text-muted text-center">
+                <small>
+                    <span class="text-success fw-bold">Green</span> = Lowest •
+                    <span class="text-danger fw-bold">Red</span> = Highest
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Desktop View: Full Table -->
+    <div class="d-none d-md-block">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>
+                                    <a href="?sort=year&dir={% if sort_by == 'year' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Year
+                                        {% if sort_by == 'year' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=vehicle_count&dir={% if sort_by == 'vehicle_count' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Vehicles
+                                        {% if sort_by == 'vehicle_count' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=fuel&dir={% if sort_by == 'fuel' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Fuel
+                                        {% if sort_by == 'fuel' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=maintenance&dir={% if sort_by == 'maintenance' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Maintenance
+                                        {% if sort_by == 'maintenance' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=insurance&dir={% if sort_by == 'insurance' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Insurance
+                                        {% if sort_by == 'insurance' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=registration&dir={% if sort_by == 'registration' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Registration
+                                        {% if sort_by == 'registration' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=vehicle_cost&dir={% if sort_by == 'vehicle_cost' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Vehicle Cost
+                                        {% if sort_by == 'vehicle_cost' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=total&dir={% if sort_by == 'total' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Total
+                                        {% if sort_by == 'total' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stats in year_stats_list %}
+                            <tr>
+                                <td><strong>{{ stats.year }}</strong></td>
+                                <td class="text-end {% if stats.vehicle_count == min_max.vehicle_count_min %}bg-success bg-opacity-10 fw-bold{% elif stats.vehicle_count == min_max.vehicle_count_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    {{ stats.vehicle_count|floatformat:1 }}
+                                </td>
+                                <td class="text-end {% if stats.fuel == min_max.fuel_min %}bg-success bg-opacity-10 fw-bold{% elif stats.fuel == min_max.fuel_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.fuel|floatformat:2|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.maintenance == min_max.maintenance_min %}bg-success bg-opacity-10 fw-bold{% elif stats.maintenance == min_max.maintenance_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.maintenance|floatformat:2|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.insurance == min_max.insurance_min %}bg-success bg-opacity-10 fw-bold{% elif stats.insurance == min_max.insurance_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.insurance|floatformat:2|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.registration == min_max.registration_min %}bg-success bg-opacity-10 fw-bold{% elif stats.registration == min_max.registration_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.registration|floatformat:2|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.vehicle_cost == min_max.vehicle_cost_min %}bg-success bg-opacity-10 fw-bold{% elif stats.vehicle_cost == min_max.vehicle_cost_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.vehicle_cost|floatformat:2|intcomma }}
+                                </td>
+                                <td class="text-end {% if stats.total == min_max.total_min %}bg-success bg-opacity-10 fw-bold{% elif stats.total == min_max.total_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    ${{ stats.total|floatformat:2|intcomma }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer text-muted">
+                <small>
+                    <i class="bi bi-info-circle me-1"></i>
+                    <span class="bg-success bg-opacity-10 px-2 py-1 rounded me-2">Green</span> = Lowest
+                    <span class="bg-danger bg-opacity-10 px-2 py-1 rounded ms-2">Red</span> = Highest
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Mobile column selector
+document.addEventListener('DOMContentLoaded', function() {
+    const selector = document.getElementById('mobile-column-selector');
+    if (selector) {
+        selector.addEventListener('change', function() {
+            const selectedColumn = this.value;
+            const currentDir = '{{ sort_dir }}';
+            window.location.href = '?sort=' + selectedColumn + '&dir=' + currentDir;
+        });
+    }
+});
+</script>
+{% endblock %}
