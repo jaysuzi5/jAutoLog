@@ -346,6 +346,20 @@
                 </div>
             </div>
         </div>
+
+        <!-- Bottom Action Buttons -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% if vehicle %}{% url 'vehicle_detail' vehicle.pk %}{% else %}{% url 'vehicle_list' %}{% endif %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Save Vehicle
+                    </button>
+                </div>
+            </div>
+        </div>
     </form>
 </div>
 
