@@ -25,6 +25,51 @@
     </div>
     {% else %}
 
+    <!-- Lifetime Totals Summary -->
+    {% if lifetime_totals %}
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Lifetime Totals</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Avg Vehicles/Year</div>
+                    <div class="fs-5 fw-bold">{{ lifetime_totals.vehicle_count|floatformat:1 }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Total Miles</div>
+                    <div class="fs-5 fw-bold">{{ lifetime_totals.miles_driven|intcomma }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Total Fuel</div>
+                    <div class="fs-5 fw-bold text-primary">${{ lifetime_totals.fuel|floatformat:2|intcomma }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Total Maintenance</div>
+                    <div class="fs-5 fw-bold text-primary">${{ lifetime_totals.maintenance|floatformat:2|intcomma }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Total Insurance</div>
+                    <div class="fs-5 fw-bold text-primary">${{ lifetime_totals.insurance|floatformat:2|intcomma }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Total Registration</div>
+                    <div class="fs-5 fw-bold text-primary">${{ lifetime_totals.registration|floatformat:2|intcomma }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Total Vehicle Cost</div>
+                    <div class="fs-5 fw-bold text-primary">${{ lifetime_totals.vehicle_cost|floatformat:2|intcomma }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Grand Total</div>
+                    <div class="fs-4 fw-bold text-success">${{ lifetime_totals.total|floatformat:2|intcomma }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Mobile View: Column Selector and Table -->
     <div class="d-md-none mb-4">
         <div class="card mb-3">
@@ -33,8 +78,8 @@
             </div>
             <div class="card-body">
                 <select class="form-select" id="mobile-column-selector">
-                    <option value="year" {% if sort_by == 'year' %}selected{% endif %}>Year</option>
-                    <option value="vehicle_count" {% if sort_by == 'vehicle_count' %}selected{% endif %}>Vehicles</option>
+                    <option value="vehicle_count" {% if sort_by == 'vehicle_count' or sort_by == 'year' %}selected{% endif %}>Vehicles</option>
+                    <option value="miles_driven" {% if sort_by == 'miles_driven' %}selected{% endif %}>Miles Driven</option>
                     <option value="fuel" {% if sort_by == 'fuel' %}selected{% endif %}>Fuel</option>
                     <option value="maintenance" {% if sort_by == 'maintenance' %}selected{% endif %}>Maintenance</option>
                     <option value="insurance" {% if sort_by == 'insurance' %}selected{% endif %}>Insurance</option>
@@ -50,24 +95,34 @@
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>Year</th>
+                            <th>
+                                <a href="?sort=year&dir={% if sort_by == 'year' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                    Year
+                                    {% if sort_by == 'year' %}
+                                        {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                    {% endif %}
+                                </a>
+                            </th>
                             <th class="text-end">
-                                <a href="?sort={{ sort_by }}&dir={% if sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none" id="mobile-sort-link">
+                                <a href="?sort={% if sort_by == 'year' %}vehicle_count{% else %}{{ sort_by }}{% endif %}&dir={% if sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none" id="mobile-sort-link">
                                     <span id="mobile-column-name">
-                                        {% if sort_by == 'year' %}Year
-                                        {% elif sort_by == 'vehicle_count' %}Vehicles
+                                        {% if sort_by == 'vehicle_count' %}Vehicles
+                                        {% elif sort_by == 'miles_driven' %}Miles Driven
                                         {% elif sort_by == 'fuel' %}Fuel
                                         {% elif sort_by == 'maintenance' %}Maintenance
                                         {% elif sort_by == 'insurance' %}Insurance
                                         {% elif sort_by == 'registration' %}Registration
                                         {% elif sort_by == 'vehicle_cost' %}Vehicle Cost
                                         {% elif sort_by == 'total' %}Total
+                                        {% else %}Vehicles
                                         {% endif %}
                                     </span>
-                                    {% if sort_dir == 'asc' %}
-                                    <i class="bi bi-arrow-up"></i>
-                                    {% else %}
-                                    <i class="bi bi-arrow-down"></i>
+                                    {% if sort_by != 'year' %}
+                                        {% if sort_dir == 'asc' %}
+                                        <i class="bi bi-arrow-up"></i>
+                                        {% else %}
+                                        <i class="bi bi-arrow-down"></i>
+                                        {% endif %}
                                     {% endif %}
                                 </a>
                             </th>
@@ -78,10 +133,10 @@
                         <tr>
                             <td><strong>{{ stats.year }}</strong></td>
                             <td class="text-end fw-bold mobile-stat-cell" data-stat="{{ sort_by }}">
-                                {% if sort_by == 'year' %}
-                                <span>{{ stats.year }}</span>
-                                {% elif sort_by == 'vehicle_count' %}
+                                {% if sort_by == 'vehicle_count' %}
                                 <span class="{% if stats.vehicle_count == min_max.vehicle_count_min %}text-success{% elif stats.vehicle_count == min_max.vehicle_count_max %}text-danger{% endif %}">{{ stats.vehicle_count|floatformat:1 }}</span>
+                                {% elif sort_by == 'miles_driven' %}
+                                <span class="{% if stats.miles_driven == min_max.miles_driven_min %}text-success{% elif stats.miles_driven == min_max.miles_driven_max %}text-danger{% endif %}">{{ stats.miles_driven|intcomma }}</span>
                                 {% elif sort_by == 'fuel' %}
                                 <span class="{% if stats.fuel == min_max.fuel_min %}text-success{% elif stats.fuel == min_max.fuel_max %}text-danger{% endif %}">${{ stats.fuel|floatformat:2|intcomma }}</span>
                                 {% elif sort_by == 'maintenance' %}
@@ -94,6 +149,8 @@
                                 <span class="{% if stats.vehicle_cost == min_max.vehicle_cost_min %}text-success{% elif stats.vehicle_cost == min_max.vehicle_cost_max %}text-danger{% endif %}">${{ stats.vehicle_cost|floatformat:2|intcomma }}</span>
                                 {% elif sort_by == 'total' %}
                                 <span class="{% if stats.total == min_max.total_min %}text-success{% elif stats.total == min_max.total_max %}text-danger{% endif %}">${{ stats.total|floatformat:2|intcomma }}</span>
+                                {% else %}
+                                <span class="{% if stats.vehicle_count == min_max.vehicle_count_min %}text-success{% elif stats.vehicle_count == min_max.vehicle_count_max %}text-danger{% endif %}">{{ stats.vehicle_count|floatformat:1 }}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -130,6 +187,14 @@
                                     <a href="?sort=vehicle_count&dir={% if sort_by == 'vehicle_count' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
                                         Vehicles
                                         {% if sort_by == 'vehicle_count' %}
+                                            {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                <th class="text-end">
+                                    <a href="?sort=miles_driven&dir={% if sort_by == 'miles_driven' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="text-decoration-none">
+                                        Miles
+                                        {% if sort_by == 'miles_driven' %}
                                             {% if sort_dir == 'asc' %}<i class="bi bi-arrow-up"></i>{% else %}<i class="bi bi-arrow-down"></i>{% endif %}
                                         {% endif %}
                                     </a>
@@ -190,6 +255,9 @@
                                 <td><strong>{{ stats.year }}</strong></td>
                                 <td class="text-end {% if stats.vehicle_count == min_max.vehicle_count_min %}bg-success bg-opacity-10 fw-bold{% elif stats.vehicle_count == min_max.vehicle_count_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
                                     {{ stats.vehicle_count|floatformat:1 }}
+                                </td>
+                                <td class="text-end {% if stats.miles_driven == min_max.miles_driven_min %}bg-success bg-opacity-10 fw-bold{% elif stats.miles_driven == min_max.miles_driven_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
+                                    {{ stats.miles_driven|intcomma }}
                                 </td>
                                 <td class="text-end {% if stats.fuel == min_max.fuel_min %}bg-success bg-opacity-10 fw-bold{% elif stats.fuel == min_max.fuel_max %}bg-danger bg-opacity-10 fw-bold{% endif %}">
                                     ${{ stats.fuel|floatformat:2|intcomma }}

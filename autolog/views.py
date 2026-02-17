@@ -401,7 +401,7 @@ def lifetime_expense_report(request):
     # Build a dictionary to hold year statistics
     year_data = {}
 
-    # Calculate vehicle count per year (fractional based on days owned)
+    # Calculate vehicle count and miles driven per year
     for vehicle in vehicles:
         start_date = vehicle.purchased_date or vehicle.lease_start_date
         if not start_date:
@@ -409,9 +409,19 @@ def lifetime_expense_report(request):
 
         end_date = vehicle.sold_date if vehicle.is_sold else date.today()
 
+        # Get all odometer readings for this vehicle (fuel and maintenance entries)
+        fuel_readings = list(vehicle.fuel_entries.order_by('date').values('date', 'odometer'))
+        maint_readings = list(vehicle.maintenance_entries.order_by('date').values('date', 'odometer'))
+
+        # Combine and sort all odometer readings
+        all_readings = fuel_readings + maint_readings
+        all_readings.sort(key=lambda x: x['date'])
+
         # Iterate through each year the vehicle was owned
         current_year = start_date.year
         end_year = end_date.year
+
+        prev_year_last_odometer = vehicle.purchased_odometer or 0
 
         while current_year <= end_year:
             # Determine the start and end dates for this year
@@ -431,10 +441,38 @@ def lifetime_expense_report(request):
             # Calculate fractional vehicle count
             vehicle_fraction = days_in_year / total_days_in_year
 
+            # Calculate miles driven in this year
+            year_readings = [r for r in all_readings if year_start <= r['date'] <= year_end]
+
+            miles_driven_this_year = 0
+            if year_readings:
+                first_odometer = year_readings[0]['odometer']
+                last_odometer = year_readings[-1]['odometer']
+
+                # If this is the first reading ever for the vehicle, use purchased_odometer as baseline
+                if current_year == start_date.year and prev_year_last_odometer:
+                    miles_driven_this_year = last_odometer - prev_year_last_odometer
+                else:
+                    # Use the last reading from previous year as starting point
+                    miles_driven_this_year = last_odometer - prev_year_last_odometer
+
+                # Update for next year
+                prev_year_last_odometer = last_odometer
+
+            # For sold vehicles, use sold_odometer if available
+            if vehicle.is_sold and current_year == end_year and vehicle.sold_odometer:
+                if year_readings:
+                    last_reading = year_readings[-1]['odometer']
+                    if vehicle.sold_odometer > last_reading:
+                        miles_driven_this_year += (vehicle.sold_odometer - last_reading)
+                elif prev_year_last_odometer:
+                    miles_driven_this_year = vehicle.sold_odometer - prev_year_last_odometer
+
             # Add to year data
             if current_year not in year_data:
-                year_data[current_year] = {'year': current_year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+                year_data[current_year] = {'year': current_year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0, 'miles_driven': 0}
             year_data[current_year]['vehicle_count'] += vehicle_fraction
+            year_data[current_year]['miles_driven'] += miles_driven_this_year
 
             current_year += 1
 
@@ -450,7 +488,7 @@ def lifetime_expense_report(request):
     for entry in fuel_by_year:
         year = entry['year']
         if year not in year_data:
-            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0, 'miles_driven': 0}
         year_data[year]['fuel'] = float(entry['total'] or 0)
 
     # Aggregate maintenance expenses by year (all categories combined)
@@ -465,7 +503,7 @@ def lifetime_expense_report(request):
     for entry in maintenance_by_year:
         year = entry['year']
         if year not in year_data:
-            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0, 'miles_driven': 0}
         year_data[year]['maintenance'] = float(entry['total'] or 0)
 
     # Aggregate insurance expenses by year
@@ -481,7 +519,7 @@ def lifetime_expense_report(request):
     for entry in insurance_by_year:
         year = entry['year']
         if year not in year_data:
-            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0, 'miles_driven': 0}
         year_data[year]['insurance'] = float(entry['total'] or 0)
 
     # Aggregate registration expenses by year
@@ -497,7 +535,7 @@ def lifetime_expense_report(request):
     for entry in registration_by_year:
         year = entry['year']
         if year not in year_data:
-            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0, 'miles_driven': 0}
         year_data[year]['registration'] = float(entry['total'] or 0)
 
     # Aggregate vehicle payments by year
@@ -513,7 +551,7 @@ def lifetime_expense_report(request):
     for entry in payments_by_year:
         year = entry['year']
         if year not in year_data:
-            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+            year_data[year] = {'year': year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0, 'miles_driven': 0}
         year_data[year]['vehicle_cost'] = float(entry['total'] or 0)
 
     # Add depreciation to purchase year for each vehicle
@@ -522,7 +560,7 @@ def lifetime_expense_report(request):
         if depreciation and vehicle.purchased_date:
             purchase_year = vehicle.purchased_date.year
             if purchase_year not in year_data:
-                year_data[purchase_year] = {'year': purchase_year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0}
+                year_data[purchase_year] = {'year': purchase_year, 'fuel': 0, 'maintenance': 0, 'insurance': 0, 'registration': 0, 'vehicle_cost': 0, 'vehicle_count': 0, 'miles_driven': 0}
             year_data[purchase_year]['vehicle_cost'] += float(depreciation)
 
     # Convert to list and calculate totals
@@ -532,6 +570,7 @@ def lifetime_expense_report(request):
         year_stats_list.append({
             'year': year,
             'vehicle_count': round(data['vehicle_count'], 1),
+            'miles_driven': int(round(data['miles_driven'], 0)),
             'fuel': round(data['fuel'], 2),
             'maintenance': round(data['maintenance'], 2),
             'insurance': round(data['insurance'], 2),
@@ -544,6 +583,7 @@ def lifetime_expense_report(request):
     sort_key_map = {
         'year': lambda x: x['year'],
         'vehicle_count': lambda x: x['vehicle_count'],
+        'miles_driven': lambda x: x['miles_driven'],
         'fuel': lambda x: x['fuel'],
         'maintenance': lambda x: x['maintenance'],
         'insurance': lambda x: x['insurance'],
@@ -559,13 +599,27 @@ def lifetime_expense_report(request):
     # Calculate min/max for highlighting (exclude zeros)
     min_max = {}
     if year_stats_list:
-        stats_keys = ['vehicle_count', 'fuel', 'maintenance', 'insurance', 'registration', 'vehicle_cost', 'total']
+        stats_keys = ['vehicle_count', 'miles_driven', 'fuel', 'maintenance', 'insurance', 'registration', 'vehicle_cost', 'total']
 
         for key in stats_keys:
             values = [v[key] for v in year_stats_list if v[key] > 0]
             if values:
                 min_max[f'{key}_min'] = min(values)
                 min_max[f'{key}_max'] = max(values)
+
+    # Calculate lifetime totals
+    lifetime_totals = None
+    if year_stats_list:
+        lifetime_totals = {
+            'vehicle_count': round(sum(v['vehicle_count'] for v in year_stats_list) / len(year_stats_list), 1),  # Average vehicles per year
+            'miles_driven': sum(v['miles_driven'] for v in year_stats_list),
+            'fuel': round(sum(v['fuel'] for v in year_stats_list), 2),
+            'maintenance': round(sum(v['maintenance'] for v in year_stats_list), 2),
+            'insurance': round(sum(v['insurance'] for v in year_stats_list), 2),
+            'registration': round(sum(v['registration'] for v in year_stats_list), 2),
+            'vehicle_cost': round(sum(v['vehicle_cost'] for v in year_stats_list), 2),
+            'total': round(sum(v['total'] for v in year_stats_list), 2),
+        }
 
     log_event(
         request=request,
@@ -580,6 +634,7 @@ def lifetime_expense_report(request):
         'sort_by': sort_by,
         'sort_dir': sort_dir,
         'min_max': min_max,
+        'lifetime_totals': lifetime_totals,
     })
 
 
