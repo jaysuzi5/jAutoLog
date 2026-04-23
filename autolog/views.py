@@ -205,18 +205,31 @@ def generate_lease_payments(vehicle):
 
 @login_required
 def home(request):
-    active_vehicles = Vehicle.objects.filter(
-        user=request.user,
-        sold_date__isnull=True
+    # All vehicles: active first, then sold; within each group sorted by purchase date desc
+    all_vehicles = Vehicle.objects.filter(user=request.user)
+
+    active = sorted(
+        [v for v in all_vehicles if not v.is_sold],
+        key=lambda v: v.purchased_date or date.min,
+        reverse=True
     )
+    sold = sorted(
+        [v for v in all_vehicles if v.is_sold],
+        key=lambda v: v.purchased_date or date.min,
+        reverse=True
+    )
+    vehicles = active + sold
+
     log_event(
         request=request,
         event="Home view was accessed in jautolog",
         level="DEBUG",
-        active_vehicle_count=active_vehicles.count()
+        active_vehicle_count=len(active),
+        sold_vehicle_count=len(sold),
     )
     return render(request, "autolog/home.html", {
-        'vehicles': active_vehicles,
+        'vehicles': vehicles,
+        'active_count': len(active),
     })
 
 
@@ -635,6 +648,102 @@ def lifetime_expense_report(request):
         'sort_dir': sort_dir,
         'min_max': min_max,
         'lifetime_totals': lifetime_totals,
+    })
+
+
+@login_required
+def gas_price_report(request):
+    """Display average gas price per gallon by year with inflation adjustment to 1991 dollars"""
+    import json
+    from django.db.models import Sum, Count
+    from django.db.models.functions import ExtractYear
+
+    # Annual average CPI (US All Items, 1982-84=100) — source: US Bureau of Labor Statistics
+    CPI_DATA = {
+        1991: 136.2, 1992: 140.3, 1993: 144.5, 1994: 148.2, 1995: 152.4,
+        1996: 156.9, 1997: 160.5, 1998: 163.0, 1999: 166.6, 2000: 172.2,
+        2001: 177.1, 2002: 179.9, 2003: 184.0, 2004: 188.9, 2005: 195.3,
+        2006: 201.6, 2007: 207.3, 2008: 215.3, 2009: 214.5, 2010: 218.1,
+        2011: 224.9, 2012: 229.6, 2013: 233.0, 2014: 236.7, 2015: 237.0,
+        2016: 240.0, 2017: 245.1, 2018: 251.1, 2019: 255.7, 2020: 258.8,
+        2021: 270.9, 2022: 292.7, 2023: 304.7, 2024: 314.2, 2025: 320.4,
+        2026: 323.0,
+    }
+    BASE_YEAR = 1991
+    BASE_CPI = CPI_DATA[BASE_YEAR]
+
+    # Get sort parameters
+    sort_by = request.GET.get('sort', 'year')
+    sort_dir = request.GET.get('dir', 'desc')
+
+    # Aggregate gasoline/diesel/hybrid fuel entries by year (exclude electric — no gallons)
+    year_data = FuelEntry.objects.filter(
+        vehicle__user=request.user,
+        gallons__isnull=False,
+        gallons__gt=0,
+    ).annotate(
+        year=ExtractYear('date')
+    ).values('year').annotate(
+        total_cost=Sum('cost'),
+        total_gallons=Sum('gallons'),
+        entry_count=Count('id'),
+    ).order_by('year')
+
+    # Build price data list
+    price_data = []
+    for entry in year_data:
+        year = entry['year']
+        total_cost = float(entry['total_cost'])
+        total_gallons = float(entry['total_gallons'])
+        avg_price = total_cost / total_gallons if total_gallons > 0 else 0
+
+        cpi = CPI_DATA.get(year)
+        adjusted_price = round(avg_price * (BASE_CPI / cpi), 3) if cpi else None
+
+        price_data.append({
+            'year': year,
+            'avg_price': round(avg_price, 3),
+            'adjusted_price': adjusted_price,
+            'total_gallons': round(total_gallons, 1),
+            'total_cost': round(total_cost, 2),
+            'entry_count': entry['entry_count'],
+        })
+
+    # Sort
+    sort_key_map = {
+        'year': lambda x: x['year'],
+        'avg_price': lambda x: x['avg_price'],
+        'adjusted_price': lambda x: x['adjusted_price'] or 0,
+        'total_gallons': lambda x: x['total_gallons'],
+        'total_cost': lambda x: x['total_cost'],
+        'entry_count': lambda x: x['entry_count'],
+    }
+    if sort_by in sort_key_map:
+        price_data.sort(key=sort_key_map[sort_by], reverse=(sort_dir == 'desc'))
+
+    # Chart data always in chronological order
+    chart_data_ordered = sorted(price_data, key=lambda x: x['year'])
+    chart_data = {
+        'years': [str(d['year']) for d in chart_data_ordered],
+        'actual_prices': [d['avg_price'] for d in chart_data_ordered],
+        'adjusted_prices': [d['adjusted_price'] for d in chart_data_ordered],
+    }
+    chart_data_json = json.dumps(chart_data)
+
+    log_event(
+        request=request,
+        event="Gas price report viewed",
+        level="DEBUG",
+        year_count=len(price_data),
+    )
+
+    return render(request, "autolog/gas_price_report.html", {
+        'price_data': price_data,
+        'sort_by': sort_by,
+        'sort_dir': sort_dir,
+        'chart_data_json': chart_data_json,
+        'has_data': len(price_data) > 0,
+        'base_year': BASE_YEAR,
     })
 
 

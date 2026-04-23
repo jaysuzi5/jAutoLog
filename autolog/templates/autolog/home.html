@@ -1,80 +1,80 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+.vehicle-list-card {
+    max-width: 600px;
+    margin: 0 auto;
+}
+.vehicle-row {
+    transition: background-color 0.1s ease;
+    flex-wrap: nowrap;
+}
+.vehicle-row:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+.vehicle-name-link {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-decoration: none;
+}
+.fuel-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.06);
+    color: #555;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+}
+.fuel-icon-btn:hover {
+    background-color: rgba(13, 110, 253, 0.15);
+    color: rgb(13, 110, 253);
+}
+</style>
 <div class="container mt-4">
-    <div class="text-center mb-5">
-        <h1 class="display-5 fw-bold"><i class="bi bi-car-front-fill me-3"></i>Welcome to jAutoLog</h1>
-        <p class="lead">Track your automobile expenses and maintenance with ease.</p>
+
+    {% if not vehicles %}
+    <div class="text-center py-5 vehicle-list-card">
+        <i class="bi bi-car-front text-muted mb-3" style="font-size: 3rem;"></i>
+        <h4 class="text-muted">No vehicles yet</h4>
+        <p class="text-muted">Add your first vehicle to start tracking expenses.</p>
+        <a href="{% url 'vehicle_create' %}" class="btn btn-primary mt-2">
+            <i class="bi bi-plus-lg me-1"></i>Add Vehicle
+        </a>
+    </div>
+    {% else %}
+
+    <div class="card vehicle-list-card">
+        <div class="card-header">
+            <span class="fw-semibold"><i class="bi bi-car-front me-2"></i>My Vehicles</span>
+        </div>
+        <div class="list-group list-group-flush">
+            {% for vehicle in vehicles %}
+            <div class="list-group-item vehicle-row d-flex align-items-center px-3 py-2 {% if vehicle.is_sold %}text-muted{% endif %}">
+                <a href="{% url 'vehicle_detail' vehicle.pk %}" class="vehicle-name-link text-reset flex-grow-1">
+                    <strong>{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</strong>
+                </a>
+                {% if not vehicle.is_sold %}
+                <a href="{% url 'fuel_entry_create' vehicle.pk %}" class="fuel-icon-btn ms-3" title="Add fuel entry">
+                    <i class="bi bi-fuel-pump"></i>
+                </a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="vehicle-list-card mt-3 text-center">
+        <a href="{% url 'vehicle_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Vehicle
+        </a>
     </div>
 
-    {% if vehicles %}
-    <div class="row row-cols-1 row-cols-sm-2 g-4 justify-content-center mb-5">
-        {% for vehicle in vehicles %}
-        <div class="col-sm-6 col-lg-4">
-            <div class="card h-100 vehicle-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="card-title mb-0">
-                            {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}
-                        </h5>
-                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
-                    </div>
-                    <div class="vehicle-details text-muted small">
-                        {% if vehicle.color %}
-                        <div class="mb-1"><i class="bi bi-palette me-2"></i>{{ vehicle.color }}</div>
-                        {% endif %}
-                        <div class="mb-1"><i class="bi bi-fuel-pump me-2"></i>{{ vehicle.get_fuel_type_display }}</div>
-                        {% if vehicle.license_plate_number %}
-                        <div><i class="bi bi-card-text me-2"></i>{{ vehicle.license_plate_number }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="card-footer bg-transparent border-top-0 pt-0">
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'vehicle_detail' vehicle.pk %}" class="btn btn-outline-primary">
-                            <i class="bi bi-eye me-1"></i>View Details
-                        </a>
-                        <a href="{% url 'fuel_entry_create' vehicle.pk %}" class="btn btn-outline-primary">
-                            <i class="bi bi-fuel-pump me-1"></i>Add Fuel
-                        </a>
-                        <a href="{% url 'maintenance_entry_create' vehicle.pk %}" class="btn btn-outline-primary">
-                            <i class="bi bi-wrench me-1"></i>Add Maintenance
-                        </a>
-                        <a href="{% url 'other_expense_create' vehicle.pk %}" class="btn btn-outline-primary">
-                            <i class="bi bi-receipt me-1"></i>Add Expense
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
     {% endif %}
-
-    <div class="row g-4 justify-content-center">
-        <div class="col-sm-6 col-lg-4">
-            <div class="card h-100 text-center">
-                <div class="card-body py-4">
-                    <i class="bi bi-car-front text-primary mb-3" style="font-size: 2.5rem;"></i>
-                    <h5 class="card-title">All Vehicles</h5>
-                    <p class="card-text text-muted">View and manage all your vehicles in one place.</p>
-                    <a href="{% url 'vehicle_list' %}" class="btn btn-primary">
-                        <i class="bi bi-arrow-right me-1"></i>View Vehicles
-                    </a>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-lg-4">
-            <div class="card h-100 text-center">
-                <div class="card-body py-4">
-                    <i class="bi bi-plus-circle text-success mb-3" style="font-size: 2.5rem;"></i>
-                    <h5 class="card-title">Add Vehicle</h5>
-                    <p class="card-text text-muted">Add a new vehicle to start tracking its expenses.</p>
-                    <a href="{% url 'vehicle_create' %}" class="btn btn-success">
-                        <i class="bi bi-plus-lg me-1"></i>Add Vehicle
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock %}
