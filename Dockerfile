@@ -15,15 +15,4 @@ RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
-CMD [\
-  "opentelemetry-instrument",\
-  "--traces_exporter", "otlp",\
-  "--metrics_exporter", "otlp",\
-  "--logs_exporter", "otlp",\
-  "--",\
-  "gunicorn",\
-  "config.wsgi:application",\
-  "--bind", "0.0.0.0:8000",\
-  "--workers", "4",\
-  "--timeout", "120"\
-]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120"]

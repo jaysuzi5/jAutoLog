@@ -94,16 +94,10 @@ spec:
                   key: AWS_MEDIA_SECRET_ACCESS_KEY
 
             # OpenTelemetry
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://otel-collector-collector.monitoring.svc.cluster.local:4317"
+            - name: OTLP_ENDPOINT
+              value: "http://otel-collector-collector.monitoring.svc.cluster.local:4318"
             - name: OTEL_SERVICE_NAME
-              value: "jautolog"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: "service.name=jautolog"
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: "grpc"
-            - name: OTEL_LOG_LEVEL
-              value: "DEBUG"
+              value: "jAutolog"
 ---
 apiVersion: v1
 kind: Service

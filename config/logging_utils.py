@@ -1,16 +1,14 @@
-# config/logging_utils.py
-
+import os
 import logging
 import json
 import datetime
 import socket
 
-logger = logging.getLogger("jautolog")
+logger = logging.getLogger("page")
+_SERVICE = os.getenv("OTEL_SERVICE_NAME", "jAutolog")
+
 
 def _get_view_name(request):
-    """
-    Returns fully-qualified view name: module.function
-    """
     if hasattr(request, "resolver_match") and request.resolver_match:
         func = request.resolver_match.func
         return f"{func.__module__}.{func.__name__}"
@@ -22,13 +20,13 @@ def log_event(
     request,
     event,
     level="INFO",
-    service="django-app",
+    service=None,
     **fields,
 ):
     log_record = {
         "level": level,
         "event": event,
-        "service": service,
+        "service": service or _SERVICE,
         "method": request.method,
         "path": request.path,
         "view": _get_view_name(request),
@@ -46,6 +44,6 @@ def log_event(
     elif level == "WARNING":
         logger.warning(message)
     elif level == "DEBUG":
-        logger.debug(message)        
+        logger.debug(message)
     else:
         logger.info(message)
